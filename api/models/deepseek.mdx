@@ -1,0 +1,444 @@
+---
+title: 'DeepSeek'
+description: 'DeepSeek language model integration with OpenAI-compatible API'
+---
+
+## Overview
+
+The `DeepSeek` class provides integration with DeepSeek's language models using an OpenAI-compatible API. It wraps LangChain's `ChatOpenAI` class with DeepSeek-specific configuration.
+
+<Info>
+  DeepSeek offers competitive pricing and strong performance for reasoning tasks, making it an excellent alternative to OpenAI models.
+</Info>
+
+## Class Definition
+
+```python
+from scrapegraphai.models import DeepSeek
+
+class DeepSeek(ChatOpenAI):
+    """
+    A wrapper for the ChatOpenAI class (DeepSeek uses an OpenAI-like API) that
+    provides default configuration and could be extended with additional methods.
+    
+    Args:
+        llm_config (dict): Configuration parameters for the language model.
+    """
+```
+
+**Source:** `scrapegraphai/models/deepseek.py:8`
+
+## Constructor
+
+```python
+DeepSeek(**llm_config)
+```
+
+### Parameters
+
+<ParamField path="model" type="string" required>
+  DeepSeek model identifier. Common options:
+  - `deepseek-chat`: General purpose chat model
+  - `deepseek-coder`: Specialized for coding tasks
+</ParamField>
+
+<ParamField path="api_key" type="string" required>
+  Your DeepSeek API key. Get one from [DeepSeek Platform](https://platform.deepseek.com).
+  
+  <Note>
+    The `api_key` parameter is automatically converted to `openai_api_key` internally for compatibility with the ChatOpenAI interface.
+  </Note>
+</ParamField>
+
+<ParamField path="temperature" type="float" default="0.7">
+  Controls randomness in responses. Range: 0.0 to 2.0.
+  - Lower values (0.0-0.3): More deterministic, factual
+  - Medium values (0.4-0.9): Balanced creativity
+  - Higher values (1.0-2.0): More creative, varied
+</ParamField>
+
+<ParamField path="max_tokens" type="int" optional>
+  Maximum number of tokens to generate in the response.
+</ParamField>
+
+<ParamField path="streaming" type="bool" default="false">
+  Enable streaming responses for real-time output.
+</ParamField>
+
+<ParamField path="**kwargs" type="any">
+  Additional parameters supported by LangChain's ChatOpenAI class, including:
+  - `top_p`: Nucleus sampling parameter
+  - `frequency_penalty`: Reduce repetition
+  - `presence_penalty`: Encourage topic diversity
+  - `timeout`: Request timeout in seconds
+</ParamField>
+
+## Implementation Details
+
+The `DeepSeek` class automatically configures the OpenAI base URL to point to DeepSeek's API:
+
+```python
+def __init__(self, **llm_config):
+    if "api_key" in llm_config:
+        llm_config["openai_api_key"] = llm_config.pop("api_key")
+    llm_config["openai_api_base"] = "https://api.deepseek.com/v1"
+    
+    super().__init__(**llm_config)
+```
+
+**Source:** `scrapegraphai/models/deepseek.py:18`
+
+This design:
+1. Maps `api_key` to `openai_api_key` for consistency with other models
+2. Sets the base URL to `https://api.deepseek.com/v1`
+3. Inherits all LangChain ChatOpenAI functionality
+
+## Usage Examples
+
+### Basic Usage with SmartScraperGraph
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+from scrapegraphai.models import DeepSeek
+
+graph_config = {
+    "llm": {
+        "model": "deepseek-chat",
+        "api_key": "your-deepseek-api-key",
+        "temperature": 0.5
+    },
+    "verbose": True
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract all product names and prices",
+    source="https://example.com/products",
+    config=graph_config
+)
+
+result = scraper.run()
+print(result)
+```
+
+### Direct Model Usage
+
+```python
+from scrapegraphai.models import DeepSeek
+
+# Initialize the model
+llm = DeepSeek(
+    model="deepseek-chat",
+    api_key="your-deepseek-api-key",
+    temperature=0.7,
+    max_tokens=2000
+)
+
+# Use with LangChain
+from langchain_core.messages import HumanMessage
+
+messages = [
+    HumanMessage(content="Explain web scraping in simple terms")
+]
+
+response = llm.invoke(messages)
+print(response.content)
+```
+
+### Coding Tasks with DeepSeek Coder
+
+```python
+from scrapegraphai.models import DeepSeek
+
+# Use the specialized coding model
+coder = DeepSeek(
+    model="deepseek-coder",
+    api_key="your-api-key",
+    temperature=0.3  # Lower temperature for more precise code
+)
+
+from langchain_core.messages import HumanMessage
+
+code_prompt = HumanMessage(
+    content="Write a Python function to parse HTML tables into a list of dictionaries"
+)
+
+response = coder.invoke([code_prompt])
+print(response.content)
+```
+
+### Streaming Responses
+
+```python
+from scrapegraphai.models import DeepSeek
+from langchain_core.messages import HumanMessage
+
+llm = DeepSeek(
+    model="deepseek-chat",
+    api_key="your-api-key",
+    streaming=True
+)
+
+messages = [HumanMessage(content="Tell me about web scraping best practices")]
+
+for chunk in llm.stream(messages):
+    print(chunk.content, end="", flush=True)
+```
+
+### Multi-Source Scraping
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "deepseek-chat",
+        "api_key": "your-deepseek-api-key"
+    }
+}
+
+websites = [
+    "https://news.ycombinator.com",
+    "https://reddit.com/r/programming",
+    "https://dev.to"
+]
+
+results = []
+for url in websites:
+    scraper = SmartScraperGraph(
+        prompt="Extract the top 5 trending topics",
+        source=url,
+        config=graph_config
+    )
+    results.append(scraper.run())
+
+for i, result in enumerate(results):
+    print(f"\nResults from {websites[i]}:")
+    print(result)
+```
+
+### With Structured Output
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+from pydantic import BaseModel, Field
+from typing import List
+
+class Product(BaseModel):
+    name: str = Field(description="Product name")
+    price: float = Field(description="Product price in USD")
+    rating: float = Field(description="Product rating out of 5")
+
+class ProductList(BaseModel):
+    products: List[Product]
+
+graph_config = {
+    "llm": {
+        "model": "deepseek-chat",
+        "api_key": "your-api-key",
+        "temperature": 0.0  # Deterministic for structured output
+    }
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract all products with their details",
+    source="https://example.com/shop",
+    config=graph_config,
+    schema=ProductList
+)
+
+result = scraper.run()
+print(result)  # Validated Pydantic model
+```
+
+## Configuration Best Practices
+
+### Temperature Settings
+
+```python
+# For factual extraction (product data, tables, etc.)
+config = {
+    "llm": {
+        "model": "deepseek-chat",
+        "api_key": "your-key",
+        "temperature": 0.0  # Maximum precision
+    }
+}
+
+# For content summarization
+config = {
+    "llm": {
+        "model": "deepseek-chat",
+        "api_key": "your-key",
+        "temperature": 0.5  # Balanced
+    }
+}
+
+# For creative tasks (generating descriptions, etc.)
+config = {
+    "llm": {
+        "model": "deepseek-chat",
+        "api_key": "your-key",
+        "temperature": 0.9  # More creative
+    }
+}
+```
+
+### Cost Optimization
+
+```python
+from scrapegraphai.models import DeepSeek
+
+# Limit tokens to control costs
+llm = DeepSeek(
+    model="deepseek-chat",
+    api_key="your-key",
+    max_tokens=500,  # Limit response length
+    timeout=30  # Fail fast on slow requests
+)
+
+# Use caching for repeated queries
+from langchain.cache import InMemoryCache
+from langchain.globals import set_llm_cache
+
+set_llm_cache(InMemoryCache())
+
+llm = DeepSeek(
+    model="deepseek-chat",
+    api_key="your-key"
+)
+
+# Subsequent identical queries will use cache
+```
+
+## Advanced Features
+
+### Custom System Prompts
+
+```python
+from scrapegraphai.models import DeepSeek
+from langchain_core.messages import SystemMessage, HumanMessage
+
+llm = DeepSeek(
+    model="deepseek-chat",
+    api_key="your-api-key"
+)
+
+messages = [
+    SystemMessage(content="You are an expert at extracting structured data from HTML. Always return valid JSON."),
+    HumanMessage(content="Extract product data from: <html>...</html>")
+]
+
+response = llm.invoke(messages)
+```
+
+### Error Handling
+
+```python
+from scrapegraphai.models import DeepSeek
+from openai import OpenAIError, RateLimitError, APIError
+import time
+
+llm = DeepSeek(
+    model="deepseek-chat",
+    api_key="your-api-key",
+    max_retries=3
+)
+
+def scrape_with_retry(url: str, max_attempts: int = 3):
+    for attempt in range(max_attempts):
+        try:
+            scraper = SmartScraperGraph(
+                prompt="Extract main content",
+                source=url,
+                config={"llm": {"model": "deepseek-chat", "api_key": "your-key"}}
+            )
+            return scraper.run()
+        except RateLimitError:
+            wait_time = 2 ** attempt  # Exponential backoff
+            print(f"Rate limited. Waiting {wait_time}s...")
+            time.sleep(wait_time)
+        except APIError as e:
+            print(f"API error: {e}")
+            if attempt == max_attempts - 1:
+                raise
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            raise
+    
+    raise Exception("Max retry attempts reached")
+```
+
+## Comparison with Other Models
+
+### DeepSeek vs OpenAI
+
+| Feature | DeepSeek | OpenAI GPT-4 |
+|---------|----------|-------------|
+| API Compatibility | OpenAI-compatible | Native |
+| Pricing | Lower cost | Higher cost |
+| Reasoning | Strong | Very strong |
+| Coding Tasks | Excellent (deepseek-coder) | Excellent |
+| Context Window | Varies by model | Up to 128k |
+| Best For | Cost-sensitive, coding | Maximum quality |
+
+### When to Use DeepSeek
+
+<Check>**Use DeepSeek when:**</Check>
+
+- Cost efficiency is important
+- Working on coding/technical content
+- Need good reasoning at lower price
+- Processing large volumes of data
+- API compatibility with OpenAI is beneficial
+
+<Warning>**Consider alternatives when:**</Warning>
+
+- Maximum accuracy is critical
+- Need specific OpenAI features (function calling, vision, etc.)
+- Working with highly specialized domains
+
+## Environment Variables
+
+For security, use environment variables for API keys:
+
+```python
+import os
+from scrapegraphai.graphs import SmartScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "deepseek-chat",
+        "api_key": os.getenv("DEEPSEEK_API_KEY"),
+        "temperature": 0.5
+    }
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract content",
+    source="https://example.com",
+    config=graph_config
+)
+```
+
+Set the environment variable:
+
+```bash
+export DEEPSEEK_API_KEY="your-api-key-here"
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Models Overview" icon="cube" href="/api/models/overview">
+    All available custom models
+  </Card>
+  <Card title="SmartScraperGraph" icon="brain" href="/api/graphs/smart-scraper">
+    Main scraping graph using LLMs
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/llm-providers">
+    Detailed configuration guide
+  </Card>
+  <Card title="XAI" icon="robot" href="/api/models/xai">
+    Alternative LLM provider
+  </Card>
+</CardGroup>

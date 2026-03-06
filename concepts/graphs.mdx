@@ -1,0 +1,447 @@
+---
+title: Graphs
+description: Understanding graph architecture and execution in ScrapeGraphAI
+---
+
+# Graphs
+
+Graphs are the core building blocks of ScrapeGraphAI. A graph represents a complete scraping workflow composed of interconnected nodes that process data sequentially or conditionally.
+
+## Overview
+
+In ScrapeGraphAI, a graph defines:
+- **Nodes**: Individual processing units (fetch, parse, generate, etc.)
+- **Edges**: Connections between nodes defining the execution flow
+- **Entry Point**: The starting node of the workflow
+- **State**: A dictionary that flows through the graph, updated by each node
+
+<CardGroup cols={2}>
+  <Card title="BaseGraph" icon="diagram-project" href="#basegraph">
+    Low-level graph execution engine
+  </Card>
+  <Card title="AbstractGraph" icon="layer-group" href="#abstractgraph">
+    High-level graph scaffolding for scraping workflows
+  </Card>
+</CardGroup>
+
+## BaseGraph
+
+`BaseGraph` manages the execution flow of interconnected nodes. It's the low-level engine that orchestrates node execution.
+
+### Key Attributes
+
+- `nodes` (list): Dictionary mapping node names to node instances
+- `edges` (list): Dictionary of directed edges defining node relationships
+- `entry_point` (str): Name of the entry point node
+- `graph_name` (str): Name identifier for the graph
+
+### Basic Example
+
+```python
+from scrapegraphai.graphs import BaseGraph
+from scrapegraphai.nodes import FetchNode, ParseNode, GenerateAnswerNode
+
+# Create nodes
+fetch_node = FetchNode(
+    input="url | local_dir",
+    output=["doc"],
+    node_config={"llm_model": llm_model}
+)
+
+parse_node = ParseNode(
+    input="doc",
+    output=["parsed_doc"],
+    node_config={"llm_model": llm_model, "chunk_size": 8192}
+)
+
+generate_answer_node = GenerateAnswerNode(
+    input="user_prompt & parsed_doc",
+    output=["answer"],
+    node_config={"llm_model": llm_model}
+)
+
+# Create graph
+graph = BaseGraph(
+    nodes=[fetch_node, parse_node, generate_answer_node],
+    edges=[
+        (fetch_node, parse_node),
+        (parse_node, generate_answer_node)
+    ],
+    entry_point=fetch_node,
+    graph_name="MyCustomGraph"
+)
+
+# Execute graph
+initial_state = {
+    "user_prompt": "Extract product names",
+    "url": "https://example.com"
+}
+final_state, execution_info = graph.execute(initial_state)
+print(final_state["answer"])
+```
+
+### Execution Flow
+
+The `BaseGraph.execute()` method processes the graph:
+
+1. **Initialize**: Start with the entry point node and initial state
+2. **Traverse**: Execute each node sequentially following edges
+3. **Update State**: Each node updates the state dictionary
+4. **Track Metrics**: Collect execution time, token usage, and costs
+5. **Return Results**: Final state and execution information
+
+<Note>
+The graph execution is synchronous by default. For async execution, use `run_safe_async()` from AbstractGraph.
+</Note>
+
+### Conditional Nodes
+
+Conditional nodes enable branching logic based on runtime conditions:
+
+```python
+from scrapegraphai.nodes import ConditionalNode
+
+cond_node = ConditionalNode(
+    input="answer",
+    output=["answer"],
+    node_name="CheckAnswer",
+    node_config={
+        "key_name": "answer",
+        "condition": 'not answer or answer=="NA"'
+    }
+)
+
+# Conditional nodes require exactly 2 outgoing edges
+graph = BaseGraph(
+    nodes=[fetch_node, parse_node, generate_node, cond_node, regen_node],
+    edges=[
+        (fetch_node, parse_node),
+        (parse_node, generate_node),
+        (generate_node, cond_node),
+        (cond_node, regen_node),  # True path
+        (cond_node, None)         # False path (end)
+    ],
+    entry_point=fetch_node
+)
+```
+
+<Info>
+Conditional nodes must have exactly two outgoing edges: one for the true condition and one for the false condition.
+</Info>
+
+### Adding Nodes Dynamically
+
+You can add nodes to an existing graph:
+
+```python
+from scrapegraphai.nodes import DescriptionNode
+
+# Add a new node to the end of the graph
+description_node = DescriptionNode(
+    input="answer",
+    output=["description"],
+    node_config={"llm_model": llm_model}
+)
+
+graph.append_node(description_node)
+```
+
+## AbstractGraph
+
+`AbstractGraph` is an abstract base class that provides scaffolding for creating high-level scraping workflows. All pre-built graphs like `SmartScraperGraph`, `SearchGraph`, and `JSONScraperGraph` inherit from `AbstractGraph`.
+
+### Key Features
+
+- Automatic LLM model initialization
+- Configuration management (verbose, headless, etc.)
+- Schema validation support
+- Common parameter propagation to all nodes
+- Execution tracking and state management
+
+### Core Attributes
+
+```python
+class AbstractGraph:
+    prompt: str              # User prompt/question
+    source: str             # Data source (URL, file, etc.)
+    config: dict            # Graph configuration
+    schema: BaseModel       # Optional Pydantic output schema
+    llm_model: object       # Initialized LLM instance
+    verbose: bool           # Enable detailed logging
+    headless: bool          # Browser headless mode
+    final_state: dict       # Final execution state
+    execution_info: list    # Execution metrics
+```
+
+### Creating a Custom Graph
+
+Extend `AbstractGraph` to create custom scraping workflows:
+
+```python
+from scrapegraphai.graphs import AbstractGraph, BaseGraph
+from scrapegraphai.nodes import FetchNode, ParseNode, GenerateAnswerNode
+from pydantic import BaseModel
+from typing import Optional, Type
+
+class MyCustomGraph(AbstractGraph):
+    """Custom graph for specialized scraping tasks"""
+    
+    def __init__(
+        self,
+        prompt: str,
+        source: str,
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None
+    ):
+        super().__init__(prompt, config, source, schema)
+        self.input_key = "url" if source.startswith("http") else "local_dir"
+    
+    def _create_graph(self) -> BaseGraph:
+        """Define the node structure and edges"""
+        
+        # Create nodes
+        fetch_node = FetchNode(
+            input="url | local_dir",
+            output=["doc"],
+            node_config={"llm_model": self.llm_model}
+        )
+        
+        parse_node = ParseNode(
+            input="doc",
+            output=["parsed_doc"],
+            node_config={
+                "llm_model": self.llm_model,
+                "chunk_size": self.model_token
+            }
+        )
+        
+        generate_node = GenerateAnswerNode(
+            input="user_prompt & parsed_doc",
+            output=["answer"],
+            node_config={
+                "llm_model": self.llm_model,
+                "schema": self.schema
+            }
+        )
+        
+        # Build and return graph
+        return BaseGraph(
+            nodes=[fetch_node, parse_node, generate_node],
+            edges=[
+                (fetch_node, parse_node),
+                (parse_node, generate_node)
+            ],
+            entry_point=fetch_node,
+            graph_name=self.__class__.__name__
+        )
+    
+    def run(self) -> str:
+        """Execute the graph and return results"""
+        inputs = {"user_prompt": self.prompt, self.input_key: self.source}
+        self.final_state, self.execution_info = self.graph.execute(inputs)
+        return self.final_state.get("answer", "No answer found.")
+
+# Use the custom graph
+graph_config = {
+    "llm": {"model": "openai/gpt-4o-mini"},
+    "verbose": True,
+    "headless": True
+}
+
+custom_graph = MyCustomGraph(
+    prompt="Extract all product information",
+    source="https://example.com/products",
+    config=graph_config
+)
+
+result = custom_graph.run()
+print(result)
+```
+
+### Pre-built Graphs
+
+ScrapeGraphAI includes several ready-to-use graphs:
+
+<Accordion title="SmartScraperGraph">
+Extracts structured data from web pages using AI.
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+
+graph = SmartScraperGraph(
+    prompt="List all attractions",
+    source="https://en.wikipedia.org/wiki/Rome",
+    config={"llm": {"model": "openai/gpt-4o-mini"}}
+)
+result = graph.run()
+```
+
+See [SmartScraperGraph reference](/api-reference/graphs/smart-scraper) for details.
+</Accordion>
+
+<Accordion title="SearchGraph">
+Searches the internet and extracts information from results.
+
+```python
+from scrapegraphai.graphs import SearchGraph
+
+graph = SearchGraph(
+    prompt="Latest AI news",
+    config={"llm": {"model": "openai/gpt-4o-mini"}}
+)
+result = graph.run()
+```
+</Accordion>
+
+<Accordion title="JSONScraperGraph">
+Extracts data from JSON sources.
+
+```python
+from scrapegraphai.graphs import JSONScraperGraph
+
+graph = JSONScraperGraph(
+    prompt="Extract user names",
+    source="data.json",
+    config={"llm": {"model": "openai/gpt-4o-mini"}}
+)
+result = graph.run()
+```
+</Accordion>
+
+## Graph Configuration
+
+Graphs are configured via the `config` dictionary. Common parameters:
+
+```python
+config = {
+    "llm": {
+        "model": "openai/gpt-4o-mini",
+        "api_key": "your-api-key",
+        "temperature": 0
+    },
+    "verbose": True,        # Enable detailed logging
+    "headless": True,       # Browser headless mode
+    "cache_path": False,    # Enable/disable caching
+    "timeout": 480,         # Request timeout in seconds
+    "loader_kwargs": {}     # Additional loader arguments
+}
+```
+
+See [Configuration](/concepts/configuration) for complete details.
+
+## State Management
+
+The state is a dictionary that flows through the graph, being updated by each node:
+
+```python
+# Initial state
+initial_state = {
+    "user_prompt": "Extract product names",
+    "url": "https://example.com"
+}
+
+# After FetchNode
+state = {
+    "user_prompt": "Extract product names",
+    "url": "https://example.com",
+    "doc": [Document(...)]  # Added by FetchNode
+}
+
+# After ParseNode
+state = {
+    "user_prompt": "Extract product names",
+    "url": "https://example.com",
+    "doc": [Document(...)],
+    "parsed_doc": ["chunk1", "chunk2", ...]  # Added by ParseNode
+}
+
+# After GenerateAnswerNode
+state = {
+    "user_prompt": "Extract product names",
+    "url": "https://example.com",
+    "doc": [Document(...)],
+    "parsed_doc": ["chunk1", "chunk2", ...],
+    "answer": {"products": [...]}  # Added by GenerateAnswerNode
+}
+```
+
+### Accessing Final State
+
+```python
+final_state, execution_info = graph.execute(initial_state)
+
+# Access specific keys
+answer = final_state.get("answer")
+parsed_doc = final_state.get("parsed_doc")
+
+# Or use get_state() with AbstractGraph
+graph.run()
+answer = graph.get_state("answer")
+all_state = graph.get_state()  # Get entire state
+```
+
+## Execution Info
+
+Every graph execution returns detailed metrics:
+
+```python
+final_state, execution_info = graph.execute(initial_state)
+
+for node_info in execution_info:
+    print(f"Node: {node_info['node_name']}")
+    print(f"Tokens: {node_info['total_tokens']}")
+    print(f"Cost: ${node_info['total_cost_USD']}")
+    print(f"Time: {node_info['exec_time']}s")
+```
+
+Or use the helper utility:
+
+```python
+from scrapegraphai.utils import prettify_exec_info
+
+info = graph.get_execution_info()
+print(prettify_exec_info(info))
+```
+
+## Burr Integration
+
+ScrapeGraphAI supports Burr for advanced workflow tracking:
+
+```python
+graph_config = {
+    "llm": {"model": "openai/gpt-4o-mini"},
+    "burr_kwargs": {
+        "app_instance_id": "my-scraping-session",
+        "project_name": "web-scraper"
+    }
+}
+
+graph = SmartScraperGraph(
+    prompt="Extract data",
+    source="https://example.com",
+    config=graph_config
+)
+
+result = graph.run()
+```
+
+<Note>
+Burr integration provides advanced debugging, state visualization, and workflow tracking capabilities.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Nodes" icon="circle-nodes" href="/concepts/nodes">
+    Learn about individual node types and their functions
+  </Card>
+  <Card title="Configuration" icon="gear" href="/concepts/configuration">
+    Explore all configuration options
+  </Card>
+  <Card title="Schemas" icon="file-code" href="/concepts/schemas">
+    Define structured output with Pydantic schemas
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/graphs/smart-scraper-graph">
+    View complete graph API documentation
+  </Card>
+</CardGroup>

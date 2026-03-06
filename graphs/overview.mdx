@@ -1,0 +1,115 @@
+---
+title: 'Graphs Overview'
+description: 'Complete guide to all available scraping graphs in ScrapeGraphAI'
+icon: 'diagram-project'
+---
+
+ScrapeGraphAI provides a collection of specialized graphs for different web scraping scenarios. Each graph is designed for specific use cases and offers unique capabilities.
+
+## Available Graphs
+
+<CardGroup cols={2}>
+  <Card title="SmartScraperGraph" icon="brain" href="/graphs/smart-scraper">
+    Extract structured data from single web pages using AI
+  </Card>
+  <Card title="SearchGraph" icon="magnifying-glass" href="/graphs/search-graph">
+    Search the internet and scrape multiple results
+  </Card>
+  <Card title="SpeechGraph" icon="microphone" href="/graphs/speech-graph">
+    Generate audio summaries from scraped content
+  </Card>
+  <Card title="ScriptCreatorGraph" icon="code" href="/graphs/script-creator">
+    Generate custom scraping scripts with BeautifulSoup
+  </Card>
+  <Card title="DocumentScraperGraph" icon="file-lines" href="/graphs/document-scraper">
+    Extract information from text documents and markdown
+  </Card>
+  <Card title="SmartScraperMultiGraph" icon="layer-group" href="/graphs/multi-scraper">
+    Scrape multiple URLs and merge results intelligently
+  </Card>
+  <Card title="DepthSearchGraph" icon="sitemap" href="/graphs/depth-search">
+    Crawl websites with configurable depth and link following
+  </Card>
+  <Card title="OmniScraperGraph" icon="images" href="/graphs/omni-scraper">
+    Scrape and analyze both text and images from web pages
+  </Card>
+</CardGroup>
+
+## Choosing the Right Graph
+
+### Single Page Scraping
+- **SmartScraperGraph**: Best for extracting structured data from a single URL
+- **OmniScraperGraph**: When you need to analyze images along with text
+- **DocumentScraperGraph**: For processing plain text or markdown content
+
+### Multiple Pages
+- **SmartScraperMultiGraph**: Scrape multiple known URLs with merged results
+- **SearchGraph**: Search the internet first, then scrape results
+- **DepthSearchGraph**: Crawl an entire website following internal links
+
+### Special Purposes
+- **SpeechGraph**: Generate audio summaries from scraped content
+- **ScriptCreatorGraph**: Generate reusable Python scraping scripts
+
+## Comparison Table
+
+| Graph | Input | Output | Best For | API Key Required |
+|-------|-------|--------|----------|------------------|
+| SmartScraperGraph | Single URL/HTML | Structured data | General web scraping | Yes |
+| SearchGraph | Search query | Merged results | Research and data aggregation | Yes |
+| SpeechGraph | Single URL | Text + Audio file | Content summarization | Yes (OpenAI) |
+| ScriptCreatorGraph | Single URL | Python script | Code generation | Yes |
+| DocumentScraperGraph | Text/Markdown | Structured data | Document processing | Yes |
+| SmartScraperMultiGraph | Multiple URLs | Merged data | Multi-source scraping | Yes |
+| DepthSearchGraph | Single URL | Deep scraped data | Site-wide scraping | Yes |
+| OmniScraperGraph | Single URL | Text + Image descriptions | Visual content analysis | Yes (OpenAI GPT-4) |
+
+## Common Configuration Options
+
+All graphs share common configuration parameters:
+
+```python
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o-mini",  # or "ollama/llama3.2"
+        "api_key": "your-api-key",      # for OpenAI models
+        "temperature": 0,                # 0-1, lower = more deterministic
+    },
+    "verbose": True,                     # Enable detailed logging
+    "headless": False,                   # Browser visibility
+}
+```
+
+## LLM Provider Support
+
+### OpenAI
+```python
+"llm": {
+    "model": "openai/gpt-4o-mini",
+    "api_key": os.getenv("OPENAI_API_KEY"),
+}
+```
+
+### Ollama (Local)
+```python
+"llm": {
+    "model": "ollama/llama3.2",
+    "temperature": 0,
+    "base_url": "http://localhost:11434",
+}
+```
+
+<Note>
+  Most graphs support both OpenAI and Ollama models. However, **SpeechGraph** and **OmniScraperGraph** require OpenAI's GPT-4 vision and TTS models.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="SmartScraperGraph" icon="brain" href="/graphs/smart-scraper">
+    Start with the most popular graph
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Set up ScrapeGraphAI
+  </Card>
+</CardGroup>

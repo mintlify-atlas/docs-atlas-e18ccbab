@@ -1,0 +1,393 @@
+---
+title: 'OpenAI Configuration'
+description: 'Configure ScrapeGraphAI with OpenAI models including GPT-4o and GPT-4o-mini'
+icon: 'openai'
+---
+
+## Overview
+
+OpenAI provides industry-leading language models that work excellently with ScrapeGraphAI. GPT-4o and GPT-4o-mini offer the best balance of accuracy and performance for web scraping tasks.
+
+## Prerequisites
+
+<Steps>
+  <Step title="Get API Key">
+    Sign up at [platform.openai.com](https://platform.openai.com) and create an API key from the [API keys page](https://platform.openai.com/api-keys).
+  </Step>
+  <Step title="Install ScrapeGraphAI">
+    ```bash
+    pip install scrapegraphai
+    playwright install
+    ```
+  </Step>
+  <Step title="Set Environment Variable">
+    ```bash
+    export OPENAI_API_KEY="sk-..."
+    ```
+    Or use a `.env` file:
+    ```bash
+    OPENAI_API_KEY=sk-...
+    ```
+  </Step>
+</Steps>
+
+## Basic Configuration
+
+```python
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o-mini",
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+smart_scraper_graph = SmartScraperGraph(
+    prompt="Extract me the first article",
+    source="https://www.wired.com",
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+print(result)
+```
+
+<Note>
+  This example is from the official examples: `examples/smart_scraper_graph/openai/smart_scraper_openai.py`
+</Note>
+
+## Available Models
+
+<Tabs>
+  <Tab title="Recommended">
+    ### GPT-4o Mini (Recommended)
+    
+    Best balance of cost, speed, and accuracy:
+    
+    ```python
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o-mini",
+    }
+    ```
+    
+    - **Context**: 128K tokens
+    - **Best for**: Most scraping tasks
+    - **Cost**: Very affordable
+    - **Speed**: Fast
+
+    ### GPT-4o
+    
+    Highest accuracy for complex tasks:
+    
+    ```python
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o",
+    }
+    ```
+    
+    - **Context**: 128K tokens
+    - **Best for**: Complex scraping, high accuracy needed
+    - **Cost**: Premium
+  </Tab>
+  
+  <Tab title="All Models">
+    ScrapeGraphAI supports all OpenAI models:
+
+    | Model | Context Window | Best For |
+    |-------|----------------|----------|
+    | `gpt-4o` | 128K | Best accuracy |
+    | `gpt-4o-mini` | 128K | Best value |
+    | `gpt-4-turbo` | 128K | Vision tasks |
+    | `gpt-3.5-turbo` | 16K | Legacy support |
+    | `o1-preview` | 200K | Advanced reasoning |
+    | `o1-mini` | 128K | Fast reasoning |
+  </Tab>
+  
+  <Tab title="Legacy">
+    Older models (not recommended for new projects):
+    
+    ```python
+    # GPT-3.5 Turbo
+    "model": "openai/gpt-3.5-turbo"
+    
+    # GPT-4 (original)
+    "model": "openai/gpt-4"
+    ```
+  </Tab>
+</Tabs>
+
+## Configuration Options
+
+### Temperature
+
+Control randomness in responses (0 = deterministic, 1 = creative):
+
+```python
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o-mini",
+        "temperature": 0,  # Recommended for scraping
+    },
+}
+```
+
+<Warning>
+  Use `temperature: 0` for consistent scraping results. Higher values (0.7-1.0) may cause inconsistent data extraction.
+</Warning>
+
+### Model Tokens
+
+Specify the maximum context window:
+
+```python
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o-mini",
+        "model_tokens": 128000,  # GPT-4o mini context size
+    },
+}
+```
+
+### Base URL (Optional)
+
+Use a custom OpenAI-compatible endpoint:
+
+```python
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o-mini",
+        "base_url": "https://custom-endpoint.com/v1",
+    },
+}
+```
+
+## Complete Example
+
+<CodeGroup>
+```python Basic Scraping
+import json
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+from scrapegraphai.utils import prettify_exec_info
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o-mini",
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+smart_scraper_graph = SmartScraperGraph(
+    prompt="Extract me the first article",
+    source="https://www.wired.com",
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+print(json.dumps(result, indent=4))
+
+# Get execution info
+graph_exec_info = smart_scraper_graph.get_execution_info()
+print(prettify_exec_info(graph_exec_info))
+```
+
+```python Multi-Page Scraping
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperMultiGraph
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o-mini",
+    },
+    "verbose": True,
+}
+
+urls = [
+    "https://example.com/page1",
+    "https://example.com/page2",
+    "https://example.com/page3",
+]
+
+multi_scraper = SmartScraperMultiGraph(
+    prompt="Extract product names and prices",
+    source=urls,
+    config=graph_config,
+)
+
+result = multi_scraper.run()
+print(result)
+```
+
+```python With Schema
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+from pydantic import BaseModel, Field
+
+load_dotenv()
+
+class Article(BaseModel):
+    title: str = Field(description="Article title")
+    author: str = Field(description="Article author")
+    date: str = Field(description="Publication date")
+    summary: str = Field(description="Brief summary")
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o-mini",
+    },
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Extract article information",
+    source="https://www.wired.com",
+    schema=Article,
+    config=graph_config,
+)
+
+result = smart_scraper.run()
+print(result)
+```
+</CodeGroup>
+
+## Cost Optimization
+
+<AccordionGroup>
+  <Accordion title="Use GPT-4o-mini for Most Tasks">
+    GPT-4o-mini is 60x cheaper than GPT-4 and handles 95% of scraping tasks perfectly:
+    
+    ```python
+    "model": "openai/gpt-4o-mini"  # Recommended
+    ```
+  </Accordion>
+  
+  <Accordion title="Set Lower max_tokens">
+    Limit token usage for simple extractions:
+    
+    ```python
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o-mini",
+        "max_tokens": 1000,  # Limit response length
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Use Headless Mode">
+    Faster scraping = fewer API calls:
+    
+    ```python
+    graph_config = {
+        "llm": {...},
+        "headless": True,  # Faster scraping
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="API Key Not Found">
+    **Error**: `AuthenticationError: No API key provided`
+    
+    **Solution**: Ensure your API key is set:
+    ```python
+    # Option 1: Environment variable
+    export OPENAI_API_KEY="sk-..."
+    
+    # Option 2: .env file
+    OPENAI_API_KEY=sk-...
+    
+    # Option 3: Direct in code (not recommended)
+    "api_key": "sk-..."
+    ```
+  </Accordion>
+  
+  <Accordion title="Rate Limit Errors">
+    **Error**: `RateLimitError: Rate limit reached`
+    
+    **Solution**: Implement delays between requests:
+    ```python
+    import time
+    
+    for url in urls:
+        result = scraper.run()
+        time.sleep(1)  # Wait 1 second between requests
+    ```
+  </Accordion>
+  
+  <Accordion title="Invalid Model Name">
+    **Error**: `InvalidRequestError: The model 'gpt-4o' does not exist`
+    
+    **Solution**: Use correct model format:
+    ```python
+    "model": "openai/gpt-4o-mini"  # Include 'openai/' prefix
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Environment Variables" icon="lock">
+    Never hardcode API keys in your code:
+    ```python
+    api_key = os.getenv("OPENAI_API_KEY")
+    ```
+  </Card>
+  
+  <Card title="Set Temperature to 0" icon="thermometer">
+    For consistent scraping results:
+    ```python
+    "temperature": 0
+    ```
+  </Card>
+  
+  <Card title="Enable Verbose Mode" icon="message">
+    During development to see what's happening:
+    ```python
+    "verbose": True
+    ```
+  </Card>
+  
+  <Card title="Use Schemas" icon="table">
+    For structured data extraction:
+    ```python
+    schema=MySchema
+    ```
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Advanced Configuration" icon="sliders" href="/configuration/advanced">
+    Learn about proxy rotation, custom headers, and timeouts
+  </Card>
+  <Card title="Ollama (Local)" icon="laptop" href="/configuration/ollama">
+    Run models locally for free
+  </Card>
+</CardGroup>

@@ -1,0 +1,392 @@
+---
+title: 'Framework Integrations'
+description: 'Integrate ScrapeGraphAI with popular LLM frameworks and workflow engines'
+icon: 'plug'
+---
+
+## Overview
+
+ScrapeGraphAI seamlessly integrates with popular LLM frameworks and workflow orchestration tools, allowing you to incorporate AI-powered web scraping into your existing pipelines.
+
+## Burr Integration
+
+Burr is a workflow orchestration framework that provides advanced tracking, debugging, and visualization capabilities.
+
+### Quick Start
+
+<Steps>
+  <Step title="Install Burr">
+    ```bash
+    pip install scrapegraphai[burr]
+    ```
+  </Step>
+
+  <Step title="Enable Burr in Your Graph">
+    ```python
+    from scrapegraphai.graphs import SmartScraperGraph
+
+    graph_config = {
+        "llm": {
+            "model": "openai/gpt-4o",
+            "api_key": "your-api-key",
+        },
+    }
+
+    smart_scraper = SmartScraperGraph(
+        prompt="Extract product information",
+        source="https://example.com",
+        config=graph_config,
+        use_burr=True,
+        burr_config={
+            "project_name": "my_scraping_project",
+            "app_instance_id": "product-scraper-001",
+        }
+    )
+
+    result = smart_scraper.run()
+    ```
+  </Step>
+
+  <Step title="View in Burr UI">
+    Access the Burr tracking interface to visualize your workflow execution, inspect state transitions, and debug issues.
+    ```bash
+    burr
+    ```
+    Navigate to http://localhost:7241 to view your tracked executions.
+  </Step>
+</Steps>
+
+For detailed Burr integration information, see the [Burr Integration](/advanced/burr-integration) page.
+
+## LangChain Integration
+
+ScrapeGraphAI is built on top of LangChain, making integration seamless.
+
+### Using LangChain Models
+
+```python
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
+from scrapegraphai.graphs import SmartScraperGraph
+
+# OpenAI
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+# Anthropic
+# llm = ChatAnthropic(model="claude-3-5-sonnet-20241022")
+
+# Google
+# llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro")
+
+graph_config = {
+    "llm": {
+        "model_instance": llm,
+    },
+    "verbose": True,
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract article title and author",
+    source="https://example.com/article",
+    config=graph_config,
+)
+
+result = scraper.run()
+```
+
+### Using LangChain Embeddings
+
+```python
+from langchain_openai import OpenAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
+from scrapegraphai.graphs import SmartScraperGraph
+
+# OpenAI embeddings
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# Or HuggingFace embeddings
+# embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o",
+        "api_key": "your-api-key",
+    },
+    "embeddings": {
+        "model_instance": embeddings,
+    },
+}
+
+scraper = SmartScraperGraph(
+    prompt="Summarize this document",
+    source="https://example.com/long-article",
+    config=graph_config,
+)
+```
+
+### Custom LangChain Chains
+
+Integrate scraped content into LangChain chains:
+
+```python
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+from scrapegraphai.graphs import SmartScraperGraph
+
+# Scrape content
+scraper = SmartScraperGraph(
+    prompt="Extract all text content",
+    source="https://example.com",
+    config={"llm": {"model": "openai/gpt-4o"}}
+)
+scraped_data = scraper.run()
+
+# Use in LangChain
+llm = ChatOpenAI()
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a helpful assistant that summarizes web content."),
+    ("user", "Summarize this: {content}")
+])
+
+chain = prompt | llm
+response = chain.invoke({"content": scraped_data})
+```
+
+## LlamaIndex Integration
+
+Use ScrapeGraphAI with LlamaIndex for advanced RAG applications.
+
+### Creating LlamaIndex Documents
+
+```python
+from llama_index.core import Document, VectorStoreIndex
+from scrapegraphai.graphs import SmartScraperGraph
+
+# Scrape multiple pages
+urls = [
+    "https://example.com/page1",
+    "https://example.com/page2",
+    "https://example.com/page3",
+]
+
+graph_config = {
+    "llm": {"model": "openai/gpt-4o"},
+}
+
+documents = []
+for url in urls:
+    scraper = SmartScraperGraph(
+        prompt="Extract all text content",
+        source=url,
+        config=graph_config,
+    )
+    result = scraper.run()
+
+    # Create LlamaIndex document
+    doc = Document(
+        text=result.get("content", ""),
+        metadata={"url": url}
+    )
+    documents.append(doc)
+
+# Build index
+index = VectorStoreIndex.from_documents(documents)
+
+# Query
+query_engine = index.as_query_engine()
+response = query_engine.query("What are the main topics?")
+print(response)
+```
+
+### Web Loader Integration
+
+```python
+from llama_index.core import VectorStoreIndex
+from llama_index.readers.web import SimpleWebPageReader
+from scrapegraphai.graphs import SmartScraperGraph
+
+class ScrapegraphWebReader:
+    """Custom LlamaIndex reader using ScrapeGraphAI."""
+
+    def __init__(self, graph_config):
+        self.graph_config = graph_config
+
+    def load_data(self, urls):
+        documents = []
+        for url in urls:
+            scraper = SmartScraperGraph(
+                prompt="Extract all structured content",
+                source=url,
+                config=self.graph_config,
+            )
+            result = scraper.run()
+
+            doc = Document(
+                text=str(result),
+                metadata={"url": url}
+            )
+            documents.append(doc)
+        return documents
+
+# Use the reader
+reader = ScrapegraphWebReader(
+    graph_config={"llm": {"model": "openai/gpt-4o"}}
+)
+documents = reader.load_data(["https://example.com"])
+index = VectorStoreIndex.from_documents(documents)
+```
+
+## Indexify Integration
+
+Indexify provides distributed indexing and extraction pipelines.
+
+```python
+from scrapegraphai.integrations import IndexifyNode
+from scrapegraphai.graphs import BaseGraph
+from scrapegraphai.nodes import FetchNode, ParseNode
+
+# Create indexification node
+indexify_node = IndexifyNode(
+    input="user_prompt & parsed_doc",
+    output=["is_indexed"],
+    node_config={
+        "verbose": True,
+    },
+)
+
+# Build graph with indexification
+graph = BaseGraph(
+    nodes=[fetch_node, parse_node, indexify_node],
+    edges=[
+        (fetch_node, parse_node),
+        (parse_node, indexify_node),
+    ],
+    entry_point=fetch_node,
+)
+```
+
+## CrewAI Integration
+
+Use ScrapeGraphAI as a tool within CrewAI agents.
+
+```python
+from crewai import Agent, Task, Crew
+from crewai_tools import BaseTool
+from scrapegraphai.graphs import SmartScraperGraph
+
+class ScrapegraphTool(BaseTool):
+    name: str = "Web Scraper"
+    description: str = "Scrapes and extracts structured data from websites using AI"
+
+    def _run(self, url: str, prompt: str) -> dict:
+        scraper = SmartScraperGraph(
+            prompt=prompt,
+            source=url,
+            config={"llm": {"model": "openai/gpt-4o"}}
+        )
+        return scraper.run()
+
+# Create agent with scraping tool
+researcher = Agent(
+    role="Research Analyst",
+    goal="Gather information from websites",
+    tools=[ScrapegraphTool()],
+    backstory="Expert at finding and extracting web data"
+)
+
+task = Task(
+    description="Extract pricing information from https://example.com/products",
+    agent=researcher,
+    expected_output="Structured product pricing data"
+)
+
+crew = Crew(agents=[researcher], tasks=[task])
+result = crew.kickoff()
+```
+
+## API Integration
+
+For production deployments, use the ScrapeGraphAI API:
+
+```python
+import requests
+
+API_KEY = "your-api-key"
+API_URL = "https://api.scrapegraphai.com/v1/scrape"
+
+headers = {
+    "Authorization": f"Bearer {API_KEY}",
+    "Content-Type": "application/json"
+}
+
+payload = {
+    "url": "https://example.com",
+    "prompt": "Extract all product information",
+    "config": {
+        "llm": {"model": "gpt-4o"},
+    }
+}
+
+response = requests.post(API_URL, json=payload, headers=headers)
+result = response.json()
+```
+
+For full API documentation, visit [docs.scrapegraphai.com](https://docs.scrapegraphai.com).
+
+## Low-Code Integrations
+
+ScrapeGraphAI integrates with popular no-code/low-code platforms:
+
+### Zapier
+
+Connect ScrapeGraphAI to 5,000+ apps:
+
+1. Create a new Zap
+2. Search for "ScrapeGraphAI" in triggers or actions
+3. Authenticate with your API key
+4. Configure scraping parameters
+5. Connect to other apps (Sheets, Slack, etc.)
+
+### n8n
+
+Use the ScrapeGraphAI node in your n8n workflows:
+
+```json
+{
+  "nodes": [
+    {
+      "type": "n8n-nodes-scrapegraphai.scraper",
+      "parameters": {
+        "url": "={{$json.url}}",
+        "prompt": "Extract contact information",
+        "model": "gpt-4o"
+      }
+    }
+  ]
+}
+```
+
+### Make (Integromat)
+
+Connect via HTTP modules:
+
+1. Add an HTTP "Make a Request" module
+2. Set method to POST
+3. URL: `https://api.scrapegraphai.com/v1/scrape`
+4. Add Authorization header with your API key
+5. Configure request body with scraping parameters
+
+## Best Practices
+
+1. **Use environment variables**: Store API keys securely
+2. **Handle rate limits**: Implement backoff strategies for API calls
+3. **Cache results**: Store scraped data to avoid redundant requests
+4. **Error handling**: Wrap integrations in try-except blocks
+5. **Monitor usage**: Track API calls and token consumption
+
+## Next Steps
+
+- Learn about [Burr integration](/advanced/burr-integration) in detail
+- Build [custom graphs](/advanced/custom-graphs) with integrations
+- Check [troubleshooting tips](/advanced/troubleshooting) for integration issues

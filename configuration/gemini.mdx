@@ -1,0 +1,541 @@
+---
+title: 'Google Gemini Configuration'
+description: 'Configure ScrapeGraphAI with Google Gemini models for massive context windows'
+icon: 'google'
+---
+
+## Overview
+
+Google Gemini provides cutting-edge AI models with industry-leading context windows, perfect for scraping large documents and complex websites.
+
+**Key Features:**
+- **Massive Context**: Up to 2M tokens (Gemini 2.0 Pro)
+- **Multimodal**: Process text, images, and video
+- **Fast**: Gemini Flash optimized for speed
+- **Cost-Effective**: Competitive pricing
+- **Latest Tech**: Google's newest AI capabilities
+
+## Prerequisites
+
+<Steps>
+  <Step title="Get API Key">
+    1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+    2. Click "Create API Key"
+    3. Copy your API key
+  </Step>
+  
+  <Step title="Install ScrapeGraphAI">
+    ```bash
+    pip install scrapegraphai
+    playwright install
+    ```
+  </Step>
+  
+  <Step title="Set Environment Variable">
+    ```bash
+    export GOOGLE_API_KEY="your-api-key"
+    ```
+    
+    Or create a `.env` file:
+    ```bash
+    GOOGLE_API_KEY=your-api-key
+    ```
+  </Step>
+</Steps>
+
+## Basic Configuration
+
+```python
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GOOGLE_API_KEY"),
+        "model": "google_genai/gemini-2.0-flash-latest",
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+smart_scraper_graph = SmartScraperGraph(
+    prompt="Extract all product information",
+    source="https://example.com",
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+print(result)
+```
+
+## Available Models
+
+<Tabs>
+  <Tab title="Recommended">
+    ### Gemini 2.0 Flash (Best for Most Tasks)
+    
+    ```python
+    graph_config = {
+        "llm": {
+            "api_key": os.getenv("GOOGLE_API_KEY"),
+            "model": "google_genai/gemini-2.0-flash-latest",
+        },
+    }
+    ```
+    
+    - **Context**: 1M tokens
+    - **Speed**: Very fast
+    - **Cost**: Affordable
+    - **Best for**: Most scraping tasks
+
+    ### Gemini 2.0 Pro (Maximum Context)
+    
+    ```python
+    graph_config = {
+        "llm": {
+            "api_key": os.getenv("GOOGLE_API_KEY"),
+            "model": "google_genai/gemini-2.0-pro-exp",
+        },
+    }
+    ```
+    
+    - **Context**: 2M tokens (largest available!)
+    - **Quality**: Highest quality
+    - **Best for**: Very large documents, complex reasoning
+  </Tab>
+  
+  <Tab title="All Models">
+    Complete list of Gemini models:
+
+    | Model | Context | Speed | Best For |
+    |-------|---------|-------|----------|
+    | `gemini-2.0-flash-latest` | 1M | Very Fast | General use |
+    | `gemini-2.0-flash-exp` | 1M | Very Fast | Experimental features |
+    | `gemini-2.0-pro-exp` | 2M | Fast | Maximum context |
+    | `gemini-1.5-pro-latest` | 128K | Fast | Stable, reliable |
+    | `gemini-1.5-flash-latest` | 128K | Very Fast | Speed priority |
+    | `gemini-pro` | 128K | Fast | Legacy support |
+    
+    <Info>
+      Gemini 2.0 models are recommended for new projects.
+    </Info>
+  </Tab>
+  
+  <Tab title="Vertex AI">
+    Use Gemini via Google Cloud Vertex AI:
+    
+    ```python
+    graph_config = {
+        "llm": {
+            "model": "google_vertexai/gemini-2.0-flash",
+            "project_id": "your-gcp-project-id",
+            "location": "us-central1",
+        },
+    }
+    ```
+    
+    **Vertex AI Benefits:**
+    - Enterprise features
+    - VPC integration
+    - Better SLAs
+    - Usage quotas
+    
+    <Note>
+      Requires Google Cloud authentication. See [Vertex AI docs](https://cloud.google.com/vertex-ai/docs/authentication).
+    </Note>
+  </Tab>
+</Tabs>
+
+## Configuration Options
+
+### Temperature
+
+Control response randomness:
+
+```python
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GOOGLE_API_KEY"),
+        "model": "google_genai/gemini-2.0-flash-latest",
+        "temperature": 0,  # Deterministic (recommended for scraping)
+    },
+}
+```
+
+- `0`: Deterministic, consistent results
+- `0.5`: Balanced
+- `1.0`: Creative, varied responses
+
+<Warning>
+  Use `temperature: 0` for web scraping to ensure consistent data extraction.
+</Warning>
+
+### Max Tokens
+
+Limit response length:
+
+```python
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GOOGLE_API_KEY"),
+        "model": "google_genai/gemini-2.0-flash-latest",
+        "max_tokens": 4000,  # Limit output
+    },
+}
+```
+
+### Safety Settings
+
+Control content filtering:
+
+```python
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GOOGLE_API_KEY"),
+        "model": "google_genai/gemini-2.0-flash-latest",
+        "safety_settings": [
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_NONE"
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH",
+                "threshold": "BLOCK_NONE"
+            },
+        ],
+    },
+}
+```
+
+<Info>
+  Adjust safety settings if legitimate content is being blocked during scraping.
+</Info>
+
+## Complete Examples
+
+<CodeGroup>
+```python Basic Scraping
+import os
+import json
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+from scrapegraphai.utils import prettify_exec_info
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GOOGLE_API_KEY"),
+        "model": "google_genai/gemini-2.0-flash-latest",
+        "temperature": 0,
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Extract the main article with title, author, and date",
+    source="https://www.wired.com",
+    config=graph_config,
+)
+
+result = smart_scraper.run()
+print(json.dumps(result, indent=4))
+
+# Get execution info
+graph_exec_info = smart_scraper.get_execution_info()
+print(prettify_exec_info(graph_exec_info))
+```
+
+```python Large Document
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+# Use Gemini 2.0 Pro for massive context
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GOOGLE_API_KEY"),
+        "model": "google_genai/gemini-2.0-pro-exp",
+        "temperature": 0,
+    },
+    "verbose": True,
+}
+
+# Scrape very long document
+scraper = SmartScraperGraph(
+    prompt="Summarize all key points from this research paper",
+    source="https://arxiv.org/abs/2301.00000",  # Long research paper
+    config=graph_config,
+)
+
+result = scraper.run()
+print(result)
+```
+
+```python Multi-Page Scraping
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperMultiGraph
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GOOGLE_API_KEY"),
+        "model": "google_genai/gemini-2.0-flash-latest",
+        "temperature": 0,
+    },
+    "verbose": True,
+}
+
+urls = [
+    "https://example.com/page1",
+    "https://example.com/page2",
+    "https://example.com/page3",
+]
+
+multi_scraper = SmartScraperMultiGraph(
+    prompt="Extract all product names and prices",
+    source=urls,
+    config=graph_config,
+)
+
+result = multi_scraper.run()
+print(result)
+```
+
+```python With Schema
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+from pydantic import BaseModel, Field
+from typing import List
+
+load_dotenv()
+
+class Product(BaseModel):
+    name: str = Field(description="Product name")
+    price: float = Field(description="Price in USD")
+    rating: float = Field(description="Customer rating")
+    reviews: int = Field(description="Number of reviews")
+
+class ProductList(BaseModel):
+    products: List[Product]
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GOOGLE_API_KEY"),
+        "model": "google_genai/gemini-2.0-flash-latest",
+    },
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract all products",
+    source="https://amazon.com/best-sellers",
+    schema=ProductList,
+    config=graph_config,
+)
+
+result = scraper.run()
+print(result)
+```
+</CodeGroup>
+
+## Using Vertex AI
+
+For enterprise deployments, use Google Cloud Vertex AI:
+
+<Steps>
+  <Step title="Enable Vertex AI">
+    1. Go to [Google Cloud Console](https://console.cloud.google.com)
+    2. Enable Vertex AI API
+    3. Set up authentication
+  </Step>
+  
+  <Step title="Install Google Cloud SDK">
+    ```bash
+    pip install google-cloud-aiplatform
+    ```
+  </Step>
+  
+  <Step title="Authenticate">
+    ```bash
+    gcloud auth application-default login
+    ```
+  </Step>
+  
+  <Step title="Configure ScrapeGraphAI">
+    ```python
+    graph_config = {
+        "llm": {
+            "model": "google_vertexai/gemini-2.0-flash",
+            "project_id": "your-gcp-project-id",
+            "location": "us-central1",
+            "temperature": 0,
+        },
+    }
+    ```
+  </Step>
+</Steps>
+
+## Cost Optimization
+
+<AccordionGroup>
+  <Accordion title="Use Gemini Flash for Speed">
+    Gemini Flash models are faster and cheaper:
+    
+    ```python
+    "model": "google_genai/gemini-2.0-flash-latest"  # Faster, cheaper
+    ```
+  </Accordion>
+  
+  <Accordion title="Limit Max Tokens">
+    Reduce token usage for simple tasks:
+    
+    ```python
+    "max_tokens": 2000  # Limit response length
+    ```
+  </Accordion>
+  
+  <Accordion title="Use Headless Mode">
+    Faster scraping = fewer API calls:
+    
+    ```python
+    "headless": True  # Run browser in background
+    ```
+  </Accordion>
+  
+  <Accordion title="Cache Common Responses">
+    Implement caching for frequently scraped pages:
+    
+    ```python
+    import functools
+    
+    @functools.lru_cache(maxsize=100)
+    def scrape_cached(url):
+        return scraper.run()
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="API Key Invalid">
+    **Error**: `Invalid API key`
+    
+    **Solution**:
+    1. Verify API key at [Google AI Studio](https://makersuite.google.com/app/apikey)
+    2. Ensure key is active and not expired
+    3. Check environment variable is set:
+    ```bash
+    echo $GOOGLE_API_KEY
+    ```
+  </Accordion>
+  
+  <Accordion title="Rate Limit Exceeded">
+    **Error**: `429 Rate limit exceeded`
+    
+    **Solution**: Implement retry logic:
+    ```python
+    from tenacity import retry, wait_exponential, stop_after_attempt
+    
+    @retry(wait=wait_exponential(min=1, max=60), stop=stop_after_attempt(5))
+    def scrape_with_retry():
+        return scraper.run()
+    ```
+  </Accordion>
+  
+  <Accordion title="Content Blocked by Safety Filters">
+    **Error**: `Content blocked due to safety settings`
+    
+    **Solution**: Adjust safety settings:
+    ```python
+    "safety_settings": [
+        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+    ]
+    ```
+  </Accordion>
+  
+  <Accordion title="Model Not Available">
+    **Error**: `Model not found`
+    
+    **Solution**: Use correct model name with provider prefix:
+    ```python
+    # Correct
+    "model": "google_genai/gemini-2.0-flash-latest"
+    
+    # Wrong
+    "model": "gemini-2.0-flash-latest"  # Missing prefix
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Advantages of Gemini
+
+<CardGroup cols={2}>
+  <Card title="Massive Context" icon="file-lines">
+    Process up to 2M tokens in a single request - perfect for scraping entire websites or long documents.
+  </Card>
+  
+  <Card title="Multimodal" icon="images">
+    Can process text, images, and video together for richer data extraction.
+  </Card>
+  
+  <Card title="Fast" icon="bolt">
+    Gemini Flash models offer industry-leading speed for real-time scraping.
+  </Card>
+  
+  <Card title="Cost-Effective" icon="dollar-sign">
+    Competitive pricing compared to other providers, especially for large contexts.
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Latest Models" icon="sparkles">
+    Always use latest model versions:
+    ```python
+    "model": "google_genai/gemini-2.0-flash-latest"
+    ```
+  </Card>
+  
+  <Card title="Set Temperature to 0" icon="thermometer">
+    For consistent scraping:
+    ```python
+    "temperature": 0
+    ```
+  </Card>
+  
+  <Card title="Enable Verbose Mode" icon="message">
+    During development:
+    ```python
+    "verbose": True
+    ```
+  </Card>
+  
+  <Card title="Handle Rate Limits" icon="shield-halved">
+    Implement exponential backoff for production use.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Advanced Configuration" icon="sliders" href="/configuration/advanced">
+    Learn about proxy rotation and browser settings
+  </Card>
+  <Card title="Groq" icon="zap" href="/configuration/groq">
+    Explore ultra-fast Groq inference
+  </Card>
+</CardGroup>

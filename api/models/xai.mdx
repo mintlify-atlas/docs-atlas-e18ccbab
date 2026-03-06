@@ -1,0 +1,626 @@
+---
+title: 'XAI (Grok)'
+description: 'xAI Grok models integration with OpenAI-compatible API'
+---
+
+## Overview
+
+The `XAI` class provides integration with xAI's Grok language models using an OpenAI-compatible API. It wraps LangChain's `ChatOpenAI` class with xAI-specific configuration.
+
+<Info>
+  Grok is xAI's conversational AI model, known for its real-time knowledge and unique personality. It's designed to be helpful, truthful, and maximally curious.
+</Info>
+
+## Class Definition
+
+```python
+from scrapegraphai.models import XAI
+
+class XAI(ChatOpenAI):
+    """
+    A wrapper for the ChatOpenAI class (xAI uses an OpenAI-compatible API) that
+    provides default configuration and could be extended with additional methods.
+    
+    Args:
+        llm_config (dict): Configuration parameters for the language model.
+    """
+```
+
+**Source:** `scrapegraphai/models/xai.py:8`
+
+## Constructor
+
+```python
+XAI(**llm_config)
+```
+
+### Parameters
+
+<ParamField path="model" type="string" required>
+  xAI model identifier. Available options:
+  - `grok-beta`: The main Grok model
+  - `grok-vision-beta`: Grok with vision capabilities
+  
+  Check [xAI documentation](https://x.ai) for the latest model versions.
+</ParamField>
+
+<ParamField path="api_key" type="string" required>
+  Your xAI API key. Sign up at [x.ai](https://x.ai) to get access.
+  
+  <Note>
+    The `api_key` parameter is automatically converted to `openai_api_key` internally for compatibility with the ChatOpenAI interface.
+  </Note>
+</ParamField>
+
+<ParamField path="temperature" type="float" default="0.7">
+  Controls randomness in responses. Range: 0.0 to 2.0.
+  - Lower values (0.0-0.3): More focused and deterministic
+  - Medium values (0.4-0.9): Balanced creativity and coherence
+  - Higher values (1.0-2.0): More creative and varied
+</ParamField>
+
+<ParamField path="max_tokens" type="int" optional>
+  Maximum number of tokens to generate in the response.
+</ParamField>
+
+<ParamField path="streaming" type="bool" default="false">
+  Enable streaming responses for real-time output.
+</ParamField>
+
+<ParamField path="**kwargs" type="any">
+  Additional parameters supported by LangChain's ChatOpenAI class, including:
+  - `top_p`: Nucleus sampling parameter
+  - `frequency_penalty`: Reduce repetition
+  - `presence_penalty`: Encourage topic diversity
+  - `timeout`: Request timeout in seconds
+</ParamField>
+
+## Implementation Details
+
+The `XAI` class automatically configures the OpenAI base URL to point to xAI's API:
+
+```python
+def __init__(self, **llm_config):
+    if "api_key" in llm_config:
+        llm_config["openai_api_key"] = llm_config.pop("api_key")
+    llm_config["openai_api_base"] = "https://api.x.ai/v1"
+    
+    super().__init__(**llm_config)
+```
+
+**Source:** `scrapegraphai/models/xai.py:18`
+
+This design:
+1. Maps `api_key` to `openai_api_key` for consistency
+2. Sets the base URL to `https://api.x.ai/v1`
+3. Inherits all LangChain ChatOpenAI functionality
+4. Maintains OpenAI-compatible interface
+
+## Usage Examples
+
+### Basic Usage with SmartScraperGraph
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+from scrapegraphai.models import XAI
+
+graph_config = {
+    "llm": {
+        "model": "grok-beta",
+        "api_key": "your-xai-api-key",
+        "temperature": 0.5
+    },
+    "verbose": True
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract all news headlines and their categories",
+    source="https://example.com/news",
+    config=graph_config
+)
+
+result = scraper.run()
+print(result)
+```
+
+### Direct Model Usage
+
+```python
+from scrapegraphai.models import XAI
+from langchain_core.messages import HumanMessage
+
+# Initialize the model
+llm = XAI(
+    model="grok-beta",
+    api_key="your-xai-api-key",
+    temperature=0.7,
+    max_tokens=2000
+)
+
+# Use with LangChain
+messages = [
+    HumanMessage(content="Explain the key principles of web scraping ethics")
+]
+
+response = llm.invoke(messages)
+print(response.content)
+```
+
+### Streaming Responses
+
+```python
+from scrapegraphai.models import XAI
+from langchain_core.messages import HumanMessage
+
+llm = XAI(
+    model="grok-beta",
+    api_key="your-xai-api-key",
+    streaming=True
+)
+
+messages = [HumanMessage(content="Describe modern web scraping techniques")]
+
+print("Grok's response: ", end="")
+for chunk in llm.stream(messages):
+    print(chunk.content, end="", flush=True)
+print()
+```
+
+### Real-Time Data Extraction
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+
+# Grok has access to real-time information
+graph_config = {
+    "llm": {
+        "model": "grok-beta",
+        "api_key": "your-xai-api-key",
+        "temperature": 0.3
+    }
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract trending topics and provide context about current events",
+    source="https://news.example.com",
+    config=graph_config
+)
+
+result = scraper.run()
+print(result)
+```
+
+### With Structured Output
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+from pydantic import BaseModel, Field
+from typing import List
+
+class NewsArticle(BaseModel):
+    headline: str = Field(description="Article headline")
+    category: str = Field(description="News category")
+    timestamp: str = Field(description="Publication time")
+    summary: str = Field(description="Brief summary")
+
+class NewsList(BaseModel):
+    articles: List[NewsArticle]
+
+graph_config = {
+    "llm": {
+        "model": "grok-beta",
+        "api_key": "your-xai-api-key",
+        "temperature": 0.0  # Deterministic for structured output
+    }
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract all news articles with metadata",
+    source="https://example.com/news",
+    config=graph_config,
+    schema=NewsList
+)
+
+result = scraper.run()
+for article in result.articles:
+    print(f"Headline: {article.headline}")
+    print(f"Category: {article.category}")
+    print(f"Time: {article.timestamp}")
+    print(f"Summary: {article.summary}")
+    print("---")
+```
+
+### Multi-Source Aggregation
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+from typing import List, Dict
+
+def aggregate_news(sources: List[str]) -> List[Dict]:
+    """Aggregate news from multiple sources using Grok."""
+    graph_config = {
+        "llm": {
+            "model": "grok-beta",
+            "api_key": "your-xai-api-key",
+            "temperature": 0.4
+        }
+    }
+    
+    results = []
+    for source in sources:
+        scraper = SmartScraperGraph(
+            prompt="Extract top stories with context and relevance",
+            source=source,
+            config=graph_config
+        )
+        results.append({
+            "source": source,
+            "data": scraper.run()
+        })
+    
+    return results
+
+sources = [
+    "https://techcrunch.com",
+    "https://theverge.com",
+    "https://arstechnica.com"
+]
+
+aggregated = aggregate_news(sources)
+for item in aggregated:
+    print(f"\nFrom {item['source']}:")
+    print(item['data'])
+```
+
+## Configuration Best Practices
+
+### Temperature Settings by Use Case
+
+```python
+# For factual data extraction
+config = {
+    "llm": {
+        "model": "grok-beta",
+        "api_key": "your-key",
+        "temperature": 0.0  # Maximum precision
+    }
+}
+
+# For content analysis with insights
+config = {
+    "llm": {
+        "model": "grok-beta",
+        "api_key": "your-key",
+        "temperature": 0.5  # Balanced
+    }
+}
+
+# For creative content generation
+config = {
+    "llm": {
+        "model": "grok-beta",
+        "api_key": "your-key",
+        "temperature": 0.9  # More creative
+    }
+}
+```
+
+### Performance Optimization
+
+```python
+from scrapegraphai.models import XAI
+
+# Optimize for speed
+llm = XAI(
+    model="grok-beta",
+    api_key="your-key",
+    max_tokens=500,  # Limit response length
+    timeout=30  # Fast timeout
+)
+
+# Optimize for quality
+llm = XAI(
+    model="grok-beta",
+    api_key="your-key",
+    temperature=0.1,  # Low variance
+    max_tokens=3000  # Detailed responses
+)
+```
+
+## Advanced Features
+
+### Custom System Prompts
+
+```python
+from scrapegraphai.models import XAI
+from langchain_core.messages import SystemMessage, HumanMessage
+
+llm = XAI(
+    model="grok-beta",
+    api_key="your-xai-api-key"
+)
+
+messages = [
+    SystemMessage(
+        content="You are a data extraction specialist. Always return valid JSON with proper field types."
+    ),
+    HumanMessage(
+        content="Extract product information from this HTML: <html>...</html>"
+    )
+]
+
+response = llm.invoke(messages)
+print(response.content)
+```
+
+### Conversation Memory
+
+```python
+from scrapegraphai.models import XAI
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+
+llm = XAI(
+    model="grok-beta",
+    api_key="your-xai-api-key"
+)
+
+# Multi-turn conversation
+conversation = [
+    SystemMessage(content="You are helping with web scraping tasks."),
+    HumanMessage(content="I need to scrape product prices from an e-commerce site."),
+]
+
+# First response
+response1 = llm.invoke(conversation)
+conversation.append(AIMessage(content=response1.content))
+
+# Follow-up
+conversation.append(
+    HumanMessage(content="How do I handle pagination?")
+)
+
+response2 = llm.invoke(conversation)
+print(response2.content)
+```
+
+### Error Handling and Retries
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+import time
+from typing import Optional
+
+def scrape_with_fallback(
+    url: str,
+    prompt: str,
+    max_retries: int = 3
+) -> Optional[dict]:
+    """Scrape with exponential backoff and error handling."""
+    
+    for attempt in range(max_retries):
+        try:
+            graph_config = {
+                "llm": {
+                    "model": "grok-beta",
+                    "api_key": "your-xai-api-key",
+                    "timeout": 60
+                }
+            }
+            
+            scraper = SmartScraperGraph(
+                prompt=prompt,
+                source=url,
+                config=graph_config
+            )
+            
+            return scraper.run()
+            
+        except Exception as e:
+            if attempt < max_retries - 1:
+                wait_time = 2 ** attempt
+                print(f"Attempt {attempt + 1} failed: {e}")
+                print(f"Retrying in {wait_time}s...")
+                time.sleep(wait_time)
+            else:
+                print(f"All attempts failed: {e}")
+                return None
+
+result = scrape_with_fallback(
+    "https://example.com",
+    "Extract main content"
+)
+```
+
+### Batch Processing
+
+```python
+from scrapegraphai.models import XAI
+from langchain_core.messages import HumanMessage
+import concurrent.futures
+
+def process_prompt(prompt: str) -> str:
+    """Process a single prompt."""
+    llm = XAI(
+        model="grok-beta",
+        api_key="your-xai-api-key"
+    )
+    response = llm.invoke([HumanMessage(content=prompt)])
+    return response.content
+
+prompts = [
+    "Summarize this article: ...",
+    "Extract email addresses from: ...",
+    "List product features: ...",
+    "Identify key dates: ..."
+]
+
+# Process in parallel
+with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+    results = list(executor.map(process_prompt, prompts))
+
+for i, result in enumerate(results):
+    print(f"\nResult {i+1}:")
+    print(result)
+```
+
+## Comparison with Other Models
+
+### XAI vs Other Providers
+
+| Feature | XAI Grok | OpenAI GPT-4 | DeepSeek |
+|---------|----------|--------------|----------|
+| Real-time data | Yes | Limited | No |
+| Personality | Unique, curious | Professional | Technical |
+| API compatibility | OpenAI-like | Native | OpenAI-like |
+| Pricing | Competitive | Premium | Budget |
+| Best for | Current events | General purpose | Code/tech |
+
+### When to Use XAI Grok
+
+<Check>**Use XAI Grok when:**</Check>
+
+- Need real-time or current information
+- Want a conversational, curious AI personality
+- Scraping news or trending content
+- Require contextual understanding of recent events
+- Want OpenAI-compatible API with unique features
+
+<Warning>**Consider alternatives when:**</Warning>
+
+- Need maximum accuracy for technical tasks
+- Budget is primary concern
+- Require specialized domain knowledge
+- Need vision capabilities (use grok-vision-beta)
+
+## Environment Variables
+
+For security best practices, use environment variables:
+
+```python
+import os
+from scrapegraphai.graphs import SmartScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "grok-beta",
+        "api_key": os.getenv("XAI_API_KEY"),
+        "temperature": 0.5
+    }
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract content",
+    source="https://example.com",
+    config=graph_config
+)
+```
+
+Set the environment variable:
+
+```bash
+export XAI_API_KEY="your-xai-api-key-here"
+```
+
+Or use a `.env` file:
+
+```bash
+# .env
+XAI_API_KEY=your-xai-api-key-here
+```
+
+```python
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+api_key = os.getenv("XAI_API_KEY")
+```
+
+## Common Use Cases
+
+### News Aggregation
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "grok-beta",
+        "api_key": "your-key",
+        "temperature": 0.4
+    }
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract headlines with context about why they're significant",
+    source="https://news.example.com",
+    config=graph_config
+)
+
+result = scraper.run()
+```
+
+### Social Media Analysis
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "grok-beta",
+        "api_key": "your-key"
+    }
+}
+
+scraper = SmartScraperGraph(
+    prompt="Analyze trending topics and sentiment",
+    source="https://social-platform.com/trending",
+    config=graph_config
+)
+
+trends = scraper.run()
+```
+
+### Research Assistant
+
+```python
+from scrapegraphai.models import XAI
+from langchain_core.messages import HumanMessage
+
+llm = XAI(
+    model="grok-beta",
+    api_key="your-key",
+    temperature=0.6
+)
+
+research_query = HumanMessage(
+    content="""Analyze this research paper abstract and:
+    1. Identify key findings
+    2. List methodologies used
+    3. Suggest related research areas
+    
+    Abstract: ...
+    """
+)
+
+response = llm.invoke([research_query])
+print(response.content)
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Models Overview" icon="cube" href="/api/models/overview">
+    All available custom models
+  </Card>
+  <Card title="DeepSeek" icon="brain" href="/api/models/deepseek">
+    Alternative cost-effective LLM
+  </Card>
+  <Card title="SmartScraperGraph" icon="spider" href="/api/graphs/smart-scraper">
+    Main scraping graph using LLMs
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/llm-providers">
+    Detailed configuration guide
+  </Card>
+</CardGroup>

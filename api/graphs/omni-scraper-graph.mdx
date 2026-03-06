@@ -1,0 +1,453 @@
+---
+title: OmniScraperGraph
+description: Web scraper with image analysis capabilities using vision models
+icon: "images"
+---
+
+## Overview
+
+`OmniScraperGraph` is a scraping pipeline that automates the process of extracting information from web pages including text and images. It uses vision-capable language models to describe and analyze images alongside text content.
+
+## Class Signature
+
+```python
+class OmniScraperGraph(AbstractGraph):
+    def __init__(
+        self,
+        prompt: str,
+        source: str,
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None,
+    )
+```
+
+## Constructor Parameters
+
+<ParamField path="prompt" type="str" required>
+  The natural language prompt describing what information to extract from the page, including text and images.
+</ParamField>
+
+<ParamField path="source" type="str" required>
+  The source to scrape. Can be:
+  - A URL starting with `http://` or `https://`
+  - A local directory path for offline HTML files
+</ParamField>
+
+<ParamField path="config" type="dict" required>
+  Configuration parameters for the graph. Must include:
+  - `llm`: LLM configuration with vision support (e.g., `{"model": "openai/gpt-4o"}`)
+  
+  Optional parameters:
+  - `max_images` (int): Maximum number of images to process (default: 5)
+  - `verbose` (bool): Enable detailed logging
+  - `headless` (bool): Run browser in headless mode
+  - `additional_info` (str): Extra context for the LLM
+  - `loader_kwargs` (dict): Parameters for page loading
+  - `storage_state` (str): Browser state file path
+</ParamField>
+
+<ParamField path="schema" type="Type[BaseModel]" default="None">
+  Optional Pydantic model defining the expected output structure.
+</ParamField>
+
+## Attributes
+
+<ResponseField name="prompt" type="str">
+  The user's extraction prompt.
+</ResponseField>
+
+<ResponseField name="source" type="str">
+  The source URL or local directory path.
+</ResponseField>
+
+<ResponseField name="config" type="dict">
+  Configuration dictionary for the graph.
+</ResponseField>
+
+<ResponseField name="schema" type="BaseModel">
+  Optional output schema for structured data extraction.
+</ResponseField>
+
+<ResponseField name="llm_model" type="object">
+  The configured language model instance (must support vision).
+</ResponseField>
+
+<ResponseField name="max_images" type="int">
+  Maximum number of images to process and analyze.
+</ResponseField>
+
+<ResponseField name="input_key" type="str">
+  Either "url" or "local_dir" based on the source type.
+</ResponseField>
+
+## Methods
+
+### run()
+
+Executes the scraping process including image analysis and returns the answer.
+
+```python
+def run(self) -> str
+```
+
+<ResponseField name="return" type="str">
+  The extracted information including text and image descriptions, or "No answer found." if extraction fails.
+</ResponseField>
+
+## Basic Usage
+
+```python
+from scrapegraphai.graphs import OmniScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o",  # Vision-capable model
+        "api_key": "your-api-key"
+    },
+    "max_images": 5
+}
+
+omni_scraper = OmniScraperGraph(
+    prompt="List all the attractions in Chioggia and describe their pictures.",
+    source="https://en.wikipedia.org/wiki/Chioggia",
+    config=graph_config
+)
+
+result = omni_scraper.run()
+print(result)
+```
+
+## Vision-Capable Models
+
+OmniScraperGraph requires LLM models with vision capabilities:
+
+### OpenAI GPT-4 Vision
+
+```python
+config = {
+    "llm": {
+        "model": "openai/gpt-4o",
+        "api_key": "your-api-key"
+    },
+    "max_images": 10
+}
+```
+
+### Anthropic Claude with Vision
+
+```python
+config = {
+    "llm": {
+        "model": "anthropic/claude-3-opus-20240229",
+        "api_key": "your-api-key"
+    },
+    "max_images": 8
+}
+```
+
+### Google Gemini
+
+```python
+config = {
+    "llm": {
+        "model": "google_genai/gemini-pro-vision",
+        "api_key": "your-api-key"
+    },
+    "max_images": 5
+}
+```
+
+## Structured Output with Schema
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class ImageDescription(BaseModel):
+    url: str = Field(description="Image URL")
+    description: str = Field(description="What the image shows")
+    relevance: str = Field(description="How it relates to the query")
+
+class Attraction(BaseModel):
+    name: str = Field(description="Attraction name")
+    description: str = Field(description="Text description")
+    images: List[ImageDescription] = Field(description="Related images")
+
+class Attractions(BaseModel):
+    attractions: List[Attraction]
+    summary: str = Field(description="Overall summary")
+
+omni_scraper = OmniScraperGraph(
+    prompt="Extract attractions with their descriptions and images",
+    source="https://en.wikipedia.org/wiki/Chioggia",
+    config=graph_config,
+    schema=Attractions
+)
+
+result = omni_scraper.run()
+```
+
+## Graph Workflow
+
+The OmniScraperGraph uses the following node pipeline:
+
+```
+FetchNode → ParseNode → ImageToTextNode → GenerateAnswerOmniNode
+```
+
+1. **FetchNode**: Fetches the web page content
+2. **ParseNode**: Parses HTML and extracts image URLs (`parse_urls=True`)
+3. **ImageToTextNode**: Analyzes images using vision model
+4. **GenerateAnswerOmniNode**: Combines text and image descriptions to answer the prompt
+
+## Controlling Image Processing
+
+### Limit Number of Images
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "max_images": 3  # Process only first 3 images
+}
+
+omni_scraper = OmniScraperGraph(
+    prompt="Describe the main product images",
+    source="https://example.com/product",
+    config=config
+)
+```
+
+### Process More Images
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "max_images": 20  # Process up to 20 images
+}
+
+omni_scraper = OmniScraperGraph(
+    prompt="Analyze all gallery images and categorize them",
+    source="https://example.com/gallery",
+    config=config
+)
+```
+
+## Use Cases
+
+1. **E-commerce Product Analysis**: Extract product info with image descriptions
+2. **Real Estate Listings**: Scrape property details with photo analysis
+3. **Art Gallery Cataloging**: Document artwork with descriptions
+4. **News Articles**: Extract articles with image context
+5. **Travel Guides**: Collect destination info with visual descriptions
+
+## Advanced Usage
+
+### E-commerce Product Scraping
+
+```python
+from pydantic import BaseModel
+from typing import List
+
+class ProductImage(BaseModel):
+    url: str
+    shows: str = Field(description="What the image shows")
+    angle: str = Field(description="Camera angle or perspective")
+
+class Product(BaseModel):
+    name: str
+    price: float
+    description: str
+    images: List[ProductImage]
+    features_visible: List[str] = Field(description="Features visible in images")
+
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "max_images": 8,
+    "additional_info": "Focus on product features visible in images"
+}
+
+omni_scraper = OmniScraperGraph(
+    prompt="Extract product information including detailed analysis of all product images",
+    source="https://example.com/product/12345",
+    config=config,
+    schema=Product
+)
+
+result = omni_scraper.run()
+```
+
+### Real Estate Listings
+
+```python
+from pydantic import BaseModel
+from typing import List
+
+class RoomImage(BaseModel):
+    room_type: str = Field(description="Type of room shown")
+    description: str = Field(description="What's visible in the image")
+    condition: str = Field(description="Condition/quality assessment")
+    features: List[str] = Field(description="Notable features visible")
+
+class Property(BaseModel):
+    address: str
+    price: str
+    bedrooms: int
+    bathrooms: int
+    description: str
+    room_images: List[RoomImage]
+    property_highlights: str
+
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "max_images": 15,
+    "additional_info": "Analyze room conditions and features from images"
+}
+
+omni_scraper = OmniScraperGraph(
+    prompt="Extract complete property information with detailed room analysis from images",
+    source="https://example.com/property/listing",
+    config=config,
+    schema=Property
+)
+
+result = omni_scraper.run()
+```
+
+### Art Gallery Cataloging
+
+```python
+from pydantic import BaseModel
+from typing import List, Optional
+
+class Artwork(BaseModel):
+    title: str
+    artist: str
+    year: Optional[str] = None
+    medium: str
+    image_description: str = Field(description="Detailed description of the artwork from image")
+    style: str = Field(description="Artistic style identified from image")
+    colors: List[str] = Field(description="Dominant colors")
+    subject: str = Field(description="Subject matter")
+
+class Exhibition(BaseModel):
+    name: str
+    artworks: List[Artwork]
+    curator_notes: Optional[str] = None
+
+config = {
+    "llm": {"model": "anthropic/claude-3-opus-20240229"},
+    "max_images": 10,
+    "additional_info": "Provide detailed art analysis including style, technique, and composition"
+}
+
+omni_scraper = OmniScraperGraph(
+    prompt="Catalog all artworks with detailed visual analysis",
+    source="https://example.com/exhibition",
+    config=config,
+    schema=Exhibition
+)
+
+result = omni_scraper.run()
+```
+
+## Accessing Results
+
+```python
+result = omni_scraper.run()
+
+# Get the answer
+print("Answer:", result)
+
+# Access full state
+final_state = omni_scraper.get_state()
+answer = final_state.get("answer")
+img_descriptions = final_state.get("img_desc")
+img_urls = final_state.get("img_urls")
+parsed_doc = final_state.get("parsed_doc")
+
+print(f"\nProcessed {len(img_urls)} images")
+print(f"\nImage Descriptions:")
+for i, desc in enumerate(img_descriptions, 1):
+    print(f"{i}. {desc}")
+
+# Execution info
+exec_info = omni_scraper.get_execution_info()
+for node_info in exec_info:
+    print(f"{node_info['node_name']}: {node_info['exec_time']:.2f}s")
+    print(f"Tokens: {node_info['total_tokens']}")
+    print(f"Cost: ${node_info['total_cost_USD']:.4f}")
+```
+
+## Cost Considerations
+
+Vision model API calls are typically more expensive than text-only:
+
+```python
+# Estimate cost
+final_state = omni_scraper.get_state()
+num_images = len(final_state.get("img_urls", []))
+
+# OpenAI GPT-4 Vision pricing (example)
+per_image_cost = 0.01  # Approximate
+estimated_image_cost = num_images * per_image_cost
+
+print(f"Processed {num_images} images")
+print(f"Estimated image analysis cost: ${estimated_image_cost:.2f}")
+```
+
+## Performance Tips
+
+1. **Limit max_images**: Process only necessary images to reduce cost
+2. **Use appropriate models**: GPT-4o for quality, gpt-4o-mini for speed
+3. **Provide context**: Use `additional_info` to guide image analysis
+4. **Image quality**: Higher resolution images provide better analysis
+5. **Test with small batches**: Start with few images and scale up
+
+## Error Handling
+
+```python
+try:
+    result = omni_scraper.run()
+    
+    if result == "No answer found.":
+        print("Extraction failed")
+        
+        # Check if images were found
+        final_state = omni_scraper.get_state()
+        img_urls = final_state.get("img_urls", [])
+        
+        if not img_urls:
+            print("No images found on the page")
+        else:
+            print(f"Found {len(img_urls)} images but analysis failed")
+    else:
+        print(f"Success: {result}")
+        
+except Exception as e:
+    print(f"Error during scraping: {e}")
+```
+
+## Comparison with SmartScraperGraph
+
+| Feature | OmniScraperGraph | SmartScraperGraph |
+|---------|------------------|-------------------|
+| **Text Extraction** | Yes | Yes |
+| **Image Analysis** | Yes | No |
+| **LLM Requirement** | Vision-capable | Any |
+| **Cost** | Higher | Lower |
+| **Use Case** | Visual content | Text content |
+| **Speed** | Slower | Faster |
+
+## Limitations
+
+- Requires vision-capable LLM models
+- More expensive than text-only scraping
+- Slower due to image processing
+- Image quality affects analysis accuracy
+- Some images may fail to load or process
+
+## Related Graphs
+
+- [SmartScraperGraph](/api/graphs/smart-scraper-graph) - Text-only web scraping
+- [OmniSearchGraph](/api/graphs/search-graph) - Search with image analysis
+- [SmartScraperMultiGraph](/api/graphs/multi-graphs) - Scrape multiple URLs (text only)

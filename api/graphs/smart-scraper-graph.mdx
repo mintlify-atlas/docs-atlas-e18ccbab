@@ -1,0 +1,324 @@
+---
+title: SmartScraperGraph
+description: Intelligent web scraper that extracts information using natural language prompts
+icon: "brain"
+---
+
+## Overview
+
+`SmartScraperGraph` is a scraping pipeline that automates the process of extracting information from web pages using a natural language model to interpret and answer prompts. It's the most commonly used graph for web scraping tasks.
+
+## Class Signature
+
+```python
+class SmartScraperGraph(AbstractGraph):
+    def __init__(
+        self,
+        prompt: str,
+        source: str,
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None,
+    )
+```
+
+## Constructor Parameters
+
+<ParamField path="prompt" type="str" required>
+  The natural language prompt describing what information to extract from the source.
+</ParamField>
+
+<ParamField path="source" type="str" required>
+  The source to scrape. Can be:
+  - A URL starting with `http://` or `https://`
+  - A local directory path for offline HTML files
+</ParamField>
+
+<ParamField path="config" type="dict" required>
+  Configuration parameters for the graph. Must include:
+  - `llm`: LLM configuration (e.g., `{"model": "openai/gpt-4o"}`)
+  
+  Optional parameters:
+  - `verbose` (bool): Enable detailed logging
+  - `headless` (bool): Run browser in headless mode (default: True)
+  - `html_mode` (bool): Process raw HTML without parsing (default: False)
+  - `reasoning` (bool): Enable chain-of-thought reasoning (default: False)
+  - `reattempt` (bool): Retry if initial extraction fails (default: False)
+  - `additional_info` (str): Extra context for the LLM
+  - `cut` (bool): Trim long documents (default: True)
+  - `force` (bool): Force re-fetch even if cached
+  - `loader_kwargs` (dict): Additional parameters for page loading
+  - `browser_base` (dict): BrowserBase configuration
+  - `scrape_do` (dict): ScrapeDo configuration
+  - `storage_state` (str): Path to browser state file
+</ParamField>
+
+<ParamField path="schema" type="Type[BaseModel]" default="None">
+  Optional Pydantic model defining the expected output structure. Ensures type-safe extraction.
+</ParamField>
+
+## Attributes
+
+<ResponseField name="prompt" type="str">
+  The user's extraction prompt.
+</ResponseField>
+
+<ResponseField name="source" type="str">
+  The source URL or local directory path.
+</ResponseField>
+
+<ResponseField name="config" type="dict">
+  Configuration dictionary for the graph.
+</ResponseField>
+
+<ResponseField name="schema" type="BaseModel">
+  Optional output schema for structured data extraction.
+</ResponseField>
+
+<ResponseField name="llm_model" type="object">
+  The configured language model instance.
+</ResponseField>
+
+<ResponseField name="verbose" type="bool">
+  Flag indicating whether verbose logging is enabled.
+</ResponseField>
+
+<ResponseField name="headless" type="bool">
+  Flag indicating whether to run browser in headless mode.
+</ResponseField>
+
+<ResponseField name="input_key" type="str">
+  Either "url" or "local_dir" based on the source type.
+</ResponseField>
+
+## Methods
+
+### run()
+
+Executes the scraping process and returns the answer to the prompt.
+
+```python
+def run(self) -> str
+```
+
+<ResponseField name="return" type="str">
+  The extracted information as a string, or "No answer found." if extraction fails.
+</ResponseField>
+
+## Basic Usage
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o",
+        "api_key": "your-api-key"
+    }
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="List me all the attractions in Chioggia.",
+    source="https://en.wikipedia.org/wiki/Chioggia",
+    config=graph_config
+)
+
+result = smart_scraper.run()
+print(result)
+```
+
+## Structured Output with Schema
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class Attraction(BaseModel):
+    name: str = Field(description="Name of the attraction")
+    description: str = Field(description="Brief description")
+    category: str = Field(description="Type of attraction")
+
+class Attractions(BaseModel):
+    attractions: List[Attraction]
+
+smart_scraper = SmartScraperGraph(
+    prompt="List all the attractions with their descriptions.",
+    source="https://en.wikipedia.org/wiki/Chioggia",
+    config=graph_config,
+    schema=Attractions
+)
+
+result = smart_scraper.run()
+# Result is automatically validated against the schema
+print(result)
+```
+
+## Advanced Configuration
+
+### HTML Mode
+
+Process raw HTML without parsing for maximum speed:
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "html_mode": True  # Skip parsing step
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Extract product prices",
+    source="https://example.com/products",
+    config=config
+)
+```
+
+### Reasoning Mode
+
+Enable chain-of-thought reasoning for complex extractions:
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "reasoning": True,  # Enable step-by-step reasoning
+    "additional_info": "Focus on numerical data and statistics"
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Analyze the company's financial performance",
+    source="https://example.com/annual-report",
+    config=config
+)
+```
+
+### Reattempt Mode
+
+Automatically retry if initial extraction fails:
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "reattempt": True  # Retry on empty or "NA" results
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Find the CEO's name",
+    source="https://example.com/about",
+    config=config
+)
+```
+
+## Local HTML Files
+
+```python
+smart_scraper = SmartScraperGraph(
+    prompt="Extract all contact information",
+    source="/path/to/local/page.html",
+    config=graph_config
+)
+
+result = smart_scraper.run()
+```
+
+## Browser Configuration
+
+### Using BrowserBase
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "browser_base": {
+        "api_key": "your-browserbase-key",
+        "project_id": "your-project-id"
+    }
+}
+```
+
+### Using ScrapeDo
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "scrape_do": {
+        "api_key": "your-scrapedo-key"
+    }
+}
+```
+
+### Storage State (Cookies/Auth)
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "storage_state": "./auth_state.json",  # Browser state with cookies
+    "headless": False
+}
+```
+
+## Accessing Graph State
+
+```python
+result = smart_scraper.run()
+
+# Access final state
+final_state = smart_scraper.get_state()
+print(final_state["answer"])       # The extracted answer
+print(final_state["parsed_doc"])  # Parsed document
+print(final_state["doc"])         # Raw document
+
+# Access execution info
+exec_info = smart_scraper.get_execution_info()
+for node_info in exec_info:
+    print(f"{node_info['node_name']}: {node_info['exec_time']}s")
+    print(f"Tokens: {node_info['total_tokens']}")
+    print(f"Cost: ${node_info['total_cost_USD']}")
+```
+
+## Graph Workflow Variations
+
+The graph automatically adapts its workflow based on configuration:
+
+**Standard workflow** (html_mode=False, reasoning=False, reattempt=False):
+```
+FetchNode → ParseNode → GenerateAnswerNode
+```
+
+**HTML mode** (html_mode=True):
+```
+FetchNode → GenerateAnswerNode
+```
+
+**With reasoning** (reasoning=True):
+```
+FetchNode → ParseNode → ReasoningNode → GenerateAnswerNode
+```
+
+**With reattempt** (reattempt=True):
+```
+FetchNode → ParseNode → GenerateAnswerNode → ConditionalNode → RegenNode
+```
+
+## Error Handling
+
+```python
+try:
+    result = smart_scraper.run()
+    if result == "No answer found.":
+        print("Extraction failed")
+    else:
+        print(f"Success: {result}")
+except Exception as e:
+    print(f"Error during scraping: {e}")
+```
+
+## Performance Tips
+
+1. **Use HTML mode** for simple extractions to skip parsing overhead
+2. **Enable cut** to trim long documents and reduce token usage
+3. **Set appropriate chunk_size** based on your LLM's context window
+4. **Use caching** with `cache_path` to avoid re-fetching pages
+5. **Enable verbose mode** during development for debugging
+
+## Related Graphs
+
+- [SmartScraperMultiGraph](/api/graphs/multi-graphs#smartscrapermultigraph) - Scrape multiple URLs
+- [SearchGraph](/api/graphs/search-graph) - Search the internet first, then scrape
+- [OmniScraperGraph](/api/graphs/omni-scraper-graph) - Include image analysis

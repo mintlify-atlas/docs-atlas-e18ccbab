@@ -1,0 +1,499 @@
+---
+title: DocumentScraperGraph
+description: Extract information from Markdown documents using natural language
+icon: "file-lines"
+---
+
+## Overview
+
+`DocumentScraperGraph` is a scraping pipeline that automates the process of extracting information from Markdown documents using a natural language model to interpret and answer prompts.
+
+## Class Signature
+
+```python
+class DocumentScraperGraph(AbstractGraph):
+    def __init__(
+        self,
+        prompt: str,
+        source: str,
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None,
+    )
+```
+
+## Constructor Parameters
+
+<ParamField path="prompt" type="str" required>
+  The natural language prompt describing what information to extract from the document.
+</ParamField>
+
+<ParamField path="source" type="str" required>
+  The source Markdown file or directory. Can be:
+  - Path to a single `.md` file (e.g., `"README.md"`)
+  - Path to a directory containing multiple Markdown files (e.g., `"./docs/"`)
+</ParamField>
+
+<ParamField path="config" type="dict" required>
+  Configuration parameters for the graph. Must include:
+  - `llm`: LLM configuration (e.g., `{"model": "openai/gpt-4o"}`)
+  
+  Optional parameters:
+  - `verbose` (bool): Enable detailed logging
+  - `headless` (bool): Run in headless mode
+  - `additional_info` (str): Extra context for the LLM
+  - `loader_kwargs` (dict): Parameters for document loading
+  - `storage_state` (str): Browser state file path
+</ParamField>
+
+<ParamField path="schema" type="Type[BaseModel]" default="None">
+  Optional Pydantic model defining the expected output structure.
+</ParamField>
+
+## Attributes
+
+<ResponseField name="prompt" type="str">
+  The user's extraction prompt.
+</ResponseField>
+
+<ResponseField name="source" type="str">
+  The Markdown file path or directory path.
+</ResponseField>
+
+<ResponseField name="config" type="dict">
+  Configuration dictionary for the graph.
+</ResponseField>
+
+<ResponseField name="schema" type="BaseModel">
+  Optional output schema for structured data extraction.
+</ResponseField>
+
+<ResponseField name="llm_model" type="object">
+  The configured language model instance.
+</ResponseField>
+
+<ResponseField name="input_key" type="str">
+  Either "md" (single file) or "md_dir" (directory) based on the source.
+</ResponseField>
+
+## Methods
+
+### run()
+
+Executes the document scraping process and returns the extracted information.
+
+```python
+def run(self) -> str
+```
+
+<ResponseField name="return" type="str">
+  The extracted information from the Markdown document(s), or "No answer found." if extraction fails.
+</ResponseField>
+
+## Basic Usage
+
+```python
+from scrapegraphai.graphs import DocumentScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o",
+        "api_key": "your-api-key"
+    }
+}
+
+doc_scraper = DocumentScraperGraph(
+    prompt="List all the main features mentioned in the documentation.",
+    source="README.md",
+    config=graph_config
+)
+
+result = doc_scraper.run()
+print(result)
+```
+
+## Example Markdown Document
+
+```markdown
+# ScrapeGraphAI
+
+A powerful web scraping library powered by AI.
+
+## Features
+
+- Natural language prompts for data extraction
+- Support for multiple LLM providers (OpenAI, Anthropic, etc.)
+- Schema-based output validation
+- Browser automation support
+
+## Installation
+
+```bash
+pip install scrapegraphai
+```
+
+## Quick Start
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+
+graph = SmartScraperGraph(
+    prompt="Extract the title",
+    source="https://example.com",
+    config={"llm": {"model": "openai/gpt-4o"}}
+)
+
+result = graph.run()
+```
+
+## Supported Models
+
+- OpenAI (GPT-4, GPT-3.5)
+- Anthropic (Claude)
+- Google (Gemini)
+- Local models via Ollama
+```
+
+## Query Examples
+
+### Extract Specific Sections
+
+```python
+doc_scraper = DocumentScraperGraph(
+    prompt="Extract the installation instructions",
+    source="README.md",
+    config=graph_config
+)
+
+result = doc_scraper.run()
+```
+
+### Code Example Extraction
+
+```python
+doc_scraper = DocumentScraperGraph(
+    prompt="Extract all Python code examples from the documentation",
+    source="docs/tutorial.md",
+    config=graph_config
+)
+
+result = doc_scraper.run()
+```
+
+### Feature List Extraction
+
+```python
+doc_scraper = DocumentScraperGraph(
+    prompt="List all features with their descriptions",
+    source="FEATURES.md",
+    config=graph_config
+)
+
+result = doc_scraper.run()
+```
+
+### API Documentation
+
+```python
+doc_scraper = DocumentScraperGraph(
+    prompt="Extract all API endpoints with their parameters and return types",
+    source="docs/api.md",
+    config=graph_config
+)
+
+result = doc_scraper.run()
+```
+
+## Structured Output with Schema
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class Feature(BaseModel):
+    name: str = Field(description="Feature name")
+    description: str = Field(description="Feature description")
+
+class CodeExample(BaseModel):
+    language: str = Field(description="Programming language")
+    code: str = Field(description="Code snippet")
+    description: str = Field(description="What the code does")
+
+class Documentation(BaseModel):
+    features: List[Feature]
+    examples: List[CodeExample]
+    summary: str = Field(description="Overall summary")
+
+doc_scraper = DocumentScraperGraph(
+    prompt="Extract features, code examples, and provide a summary",
+    source="README.md",
+    config=graph_config,
+    schema=Documentation
+)
+
+result = doc_scraper.run()
+# Result is automatically validated against the schema
+```
+
+## Multiple Markdown Files
+
+```python
+# Directory structure:
+# docs/
+#   ├── getting-started.md
+#   ├── api-reference.md
+#   ├── examples.md
+#   └── faq.md
+
+doc_scraper = DocumentScraperGraph(
+    prompt="Summarize all the documentation and create a table of contents",
+    source="./docs/",  # Directory path
+    config=graph_config
+)
+
+result = doc_scraper.run()
+# Automatically processes all Markdown files in the directory
+```
+
+## Graph Workflow
+
+The DocumentScraperGraph uses the following node pipeline:
+
+```
+FetchNode → ParseNode → GenerateAnswerNode
+```
+
+1. **FetchNode**: Loads the Markdown file(s)
+2. **ParseNode**: Parses the Markdown content without HTML parsing
+3. **GenerateAnswerNode**: Extracts information based on the prompt (with `is_md_scraper=True` flag)
+
+## Use Cases
+
+1. **Documentation Analysis**: Extract information from technical documentation
+2. **README Parsing**: Parse project README files
+3. **Knowledge Base Querying**: Query markdown-based knowledge bases
+4. **Content Migration**: Extract structured data from markdown content
+5. **Documentation Generation**: Extract info to generate other doc formats
+
+## Advanced Usage
+
+### With Additional Context
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "additional_info": """
+        This is technical documentation for a Python library.
+        Focus on code examples and API specifications.
+    """
+}
+
+doc_scraper = DocumentScraperGraph(
+    prompt="Extract all function signatures with their parameters and descriptions",
+    source="docs/api-reference.md",
+    config=config
+)
+```
+
+### Extract API Documentation
+
+```python
+from pydantic import BaseModel
+from typing import List, Optional
+
+class Parameter(BaseModel):
+    name: str
+    type: str
+    required: bool
+    description: str
+
+class APIEndpoint(BaseModel):
+    method: str
+    path: str
+    parameters: List[Parameter]
+    returns: str
+    description: str
+    example: Optional[str] = None
+
+class APIDocumentation(BaseModel):
+    endpoints: List[APIEndpoint]
+    base_url: Optional[str] = None
+
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "additional_info": "Extract RESTful API endpoint documentation"
+}
+
+doc_scraper = DocumentScraperGraph(
+    prompt="Extract all API endpoints with complete documentation",
+    source="docs/api.md",
+    config=config,
+    schema=APIDocumentation
+)
+
+result = doc_scraper.run()
+```
+
+## Example: Extract Tutorial Steps
+
+```python
+from pydantic import BaseModel
+from typing import List
+
+class TutorialStep(BaseModel):
+    step_number: int
+    title: str
+    description: str
+    code: Optional[str] = None
+    notes: Optional[str] = None
+
+class Tutorial(BaseModel):
+    title: str
+    steps: List[TutorialStep]
+    prerequisites: List[str]
+    estimated_time: Optional[str] = None
+
+doc_scraper = DocumentScraperGraph(
+    prompt="Extract the complete tutorial with all steps, code examples, and prerequisites",
+    source="docs/tutorial.md",
+    config=graph_config,
+    schema=Tutorial
+)
+
+result = doc_scraper.run()
+```
+
+## Example: FAQ Extraction
+
+```python
+from pydantic import BaseModel
+from typing import List
+
+class FAQItem(BaseModel):
+    question: str
+    answer: str
+    category: Optional[str] = None
+
+class FAQ(BaseModel):
+    items: List[FAQItem]
+    total_count: int
+
+doc_scraper = DocumentScraperGraph(
+    prompt="Extract all FAQ items with questions and answers, and categorize them if possible",
+    source="docs/faq.md",
+    config=graph_config,
+    schema=FAQ
+)
+
+result = doc_scraper.run()
+```
+
+## Accessing Results
+
+```python
+result = doc_scraper.run()
+
+# Get the answer
+print("Answer:", result)
+
+# Access full state
+final_state = doc_scraper.get_state()
+raw_doc = final_state.get("doc")
+parsed_doc = final_state.get("parsed_doc")
+answer = final_state.get("answer")
+
+print(f"Document length: {len(str(raw_doc))} characters")
+print(f"Parsed chunks: {len(parsed_doc) if isinstance(parsed_doc, list) else 1}")
+
+# Execution info
+exec_info = doc_scraper.get_execution_info()
+for node_info in exec_info:
+    print(f"{node_info['node_name']}: {node_info['exec_time']:.2f}s")
+    print(f"Tokens: {node_info['total_tokens']}")
+    print(f"Cost: ${node_info['total_cost_USD']:.4f}")
+```
+
+## Working with Large Documents
+
+```python
+config = {
+    "llm": {
+        "model": "openai/gpt-4o",
+        "model_tokens": 128000  # Use model with larger context
+    },
+    "additional_info": "Focus on the most relevant sections for the query"
+}
+
+doc_scraper = DocumentScraperGraph(
+    prompt="Summarize the key architectural decisions",
+    source="docs/architecture.md",
+    config=config
+)
+```
+
+## Markdown Features Support
+
+DocumentScraperGraph handles various Markdown features:
+
+- **Headers** (H1-H6): Structural navigation
+- **Code blocks**: Both inline and fenced
+- **Lists**: Ordered and unordered
+- **Tables**: Data extraction
+- **Links**: Reference extraction
+- **Quotes**: Emphasis detection
+- **Bold/Italic**: Text emphasis
+
+## Error Handling
+
+```python
+import os
+
+try:
+    # Check if file exists
+    if not os.path.exists("docs/file.md"):
+        raise FileNotFoundError("Markdown file not found")
+    
+    result = doc_scraper.run()
+    
+    if result == "No answer found.":
+        print("Failed to extract information from document")
+    else:
+        print(f"Success: {result}")
+        
+except FileNotFoundError as e:
+    print(f"File error: {e}")
+except Exception as e:
+    print(f"Error during processing: {e}")
+```
+
+## Tips for Better Results
+
+1. **Understand structure**: Review document structure before querying
+2. **Be specific**: Clear prompts get better answers
+3. **Use schema**: Define schemas for type-safe output
+4. **Section targeting**: Reference specific sections in your prompt
+5. **Provide context**: Use `additional_info` for domain knowledge
+6. **Test queries**: Start simple and iterate
+7. **Handle code blocks**: Specify if you want code extraction
+
+## Performance Considerations
+
+1. **Document Size**: Large documents may exceed LLM context limits
+2. **Multiple Files**: Processing multiple files increases execution time
+3. **Code Blocks**: Many code blocks increase token usage
+4. **Complex Queries**: More complex extraction requires more tokens
+
+## Comparison with Other Formats
+
+| Format | Use Case | Complexity | DocumentScraperGraph Support |
+|--------|----------|------------|------------------------------|
+| **Markdown** | Documentation | Low-Medium | Yes (this graph) |
+| **HTML** | Web pages | Medium-High | Use SmartScraperGraph |
+| **JSON** | Structured data | Low | Use JSONScraperGraph |
+| **CSV** | Tabular data | Low | Use CSVScraperGraph |
+| **XML** | Config/Data | Medium | Use XMLScraperGraph |
+
+## Related Graphs
+
+- [DocumentScraperMultiGraph](/api/graphs/multi-graphs#documentscrapermultigraph) - Process multiple Markdown files separately
+- [SmartScraperGraph](/api/graphs/smart-scraper-graph) - Scrape web pages (HTML)
+- [CSVScraperGraph](/api/graphs/csv-scraper-graph) - Query CSV files

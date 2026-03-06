@@ -1,0 +1,196 @@
+---
+title: 'LLM Providers Overview'
+description: 'Complete guide to all supported LLM providers in ScrapeGraphAI'
+icon: 'brain'
+---
+
+## Supported LLM Providers
+
+ScrapeGraphAI supports 20+ LLM providers, giving you flexibility to choose the best model for your scraping needs. Each provider offers different models, pricing, and performance characteristics.
+
+## Quick Comparison
+
+<CardGroup cols={2}>
+  <Card title="OpenAI" icon="openai" href="/configuration/openai">
+    Industry-leading models with GPT-4o and GPT-4o-mini. Best for complex scraping tasks.
+  </Card>
+  <Card title="Ollama" icon="laptop" href="/configuration/ollama">
+    Run models locally with Llama 3.2, Mistral, and more. Free and private.
+  </Card>
+  <Card title="Azure OpenAI" icon="microsoft" href="/configuration/azure">
+    Enterprise-grade OpenAI models with Azure infrastructure.
+  </Card>
+  <Card title="Google Gemini" icon="google" href="/configuration/gemini">
+    Powerful Gemini 2.0 Pro with 2M token context window.
+  </Card>
+  <Card title="Groq" icon="zap" href="/configuration/groq">
+    Ultra-fast inference with Llama and Gemma models.
+  </Card>
+  <Card title="Anthropic Claude" icon="message-bot">
+    Claude 3.5 Sonnet and Opus for advanced reasoning.
+  </Card>
+</CardGroup>
+
+## All Supported Providers
+
+### Cloud Providers
+
+| Provider | Popular Models | Context Window | Best For |
+|----------|---------------|----------------|----------|
+| **OpenAI** | gpt-4o, gpt-4o-mini | 128K tokens | Complex scraping, best accuracy |
+| **Anthropic** | Claude 3.5 Sonnet, Claude Opus | 200K tokens | Advanced reasoning, long content |
+| **Google Gemini** | Gemini 2.0 Pro, Flash | 1M-2M tokens | Massive context, multimodal |
+| **Azure OpenAI** | gpt-4o, gpt-4-turbo | 128K tokens | Enterprise deployments |
+| **Groq** | Llama 3.3 70B, Gemma 2 | 128K tokens | Speed, cost-effective |
+| **Mistral AI** | Mistral Large, Codestral | 128K tokens | European hosting, coding |
+| **Deepseek** | Deepseek-V3, R1 | 128K tokens | Cost-effective, reasoning |
+| **Together AI** | Llama 3.1 405B, Mixtral | 128K tokens | Open models, flexible |
+| **Fireworks** | Llama 3.1, Mixtral | 131K tokens | Fast inference |
+| **NVIDIA NIM** | Llama 3.3, Nemotron | 128K tokens | GPU-optimized |
+| **AWS Bedrock** | Claude, Llama, Mistral | Up to 200K | AWS ecosystem |
+| **xAI** | Grok-3, Grok-3 Mini | 1M tokens | Latest models |
+
+### Local/Self-Hosted
+
+| Provider | Description | Best For |
+|----------|-------------|----------|
+| **Ollama** | Run models locally (Llama, Mistral, Gemma) | Privacy, no API costs |
+| **Hugging Face** | 300+ open models | Research, custom models |
+| **OneAPI** | Unified API for Chinese models | Chinese content |
+
+### Enterprise Solutions
+
+| Provider | Description | Best For |
+|----------|-------------|----------|
+| **Azure OpenAI** | Microsoft-hosted OpenAI | Enterprise compliance |
+| **AWS Bedrock** | Serverless foundation models | AWS infrastructure |
+| **Google Vertex AI** | Google Cloud AI platform | GCP ecosystem |
+| **Clod** | Multi-provider aggregation | Provider flexibility |
+
+## Model Selection Guide
+
+<Tabs>
+  <Tab title="Best Accuracy">
+    For the highest quality scraping results:
+    
+    - **OpenAI GPT-4o**: Best overall performance
+    - **Anthropic Claude 3.5 Sonnet**: Excellent reasoning
+    - **Google Gemini 2.0 Pro**: Great for long documents
+  </Tab>
+  
+  <Tab title="Cost-Effective">
+    Balance performance and cost:
+    
+    - **OpenAI GPT-4o-mini**: Great value
+    - **Groq Llama 3.1**: Fast and affordable
+    - **Deepseek V3**: Very cheap, good quality
+    - **Ollama** (local): Free after setup
+  </Tab>
+  
+  <Tab title="Speed">
+    Fastest inference times:
+    
+    - **Groq**: Industry-leading speed
+    - **Fireworks**: Very fast inference
+    - **Google Gemini Flash**: Fast and accurate
+  </Tab>
+  
+  <Tab title="Privacy">
+    Keep your data private:
+    
+    - **Ollama**: Run completely locally
+    - **Azure OpenAI**: Enterprise data protection
+    - **Self-hosted Hugging Face**: Full control
+  </Tab>
+</Tabs>
+
+## Basic Configuration Pattern
+
+All providers follow a similar configuration pattern:
+
+```python
+graph_config = {
+    "llm": {
+        "api_key": "your-api-key",
+        "model": "provider/model-name",
+        "temperature": 0,  # Optional
+    },
+    "verbose": True,
+    "headless": False,
+}
+```
+
+<Note>
+  The `model` field uses the format `provider/model-name` (e.g., `openai/gpt-4o-mini`, `anthropic/claude-3-5-sonnet-20240620`).
+</Note>
+
+## Provider-Specific Guides
+
+<CardGroup cols={3}>
+  <Card title="OpenAI" icon="openai" href="/configuration/openai">
+    Setup guide for OpenAI models
+  </Card>
+  <Card title="Ollama" icon="laptop" href="/configuration/ollama">
+    Run models locally
+  </Card>
+  <Card title="Azure" icon="microsoft" href="/configuration/azure">
+    Azure OpenAI setup
+  </Card>
+  <Card title="Gemini" icon="google" href="/configuration/gemini">
+    Google Gemini configuration
+  </Card>
+  <Card title="Groq" icon="zap" href="/configuration/groq">
+    Groq setup guide
+  </Card>
+  <Card title="Advanced" icon="sliders" href="/configuration/advanced">
+    Proxy, timeouts, and more
+  </Card>
+</CardGroup>
+
+## Switching Providers
+
+Switching between providers is simple - just change the `llm` configuration:
+
+<CodeGroup>
+```python OpenAI
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o-mini",
+    },
+}
+```
+
+```python Anthropic
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("ANTHROPIC_API_KEY"),
+        "model": "anthropic/claude-3-5-sonnet-20240620",
+    },
+}
+```
+
+```python Ollama (Local)
+graph_config = {
+    "llm": {
+        "model": "ollama/llama3.2",
+        "base_url": "http://localhost:11434",
+    },
+}
+```
+
+```python Groq
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GROQ_API_KEY"),
+        "model": "groq/llama-3.3-70b-versatile",
+    },
+}
+```
+</CodeGroup>
+
+## Next Steps
+
+<Card title="Advanced Configuration" icon="sliders" href="/configuration/advanced">
+  Learn about proxy rotation, custom headers, timeouts, and browser settings
+</Card>

@@ -1,0 +1,366 @@
+---
+title: "FetchNode"
+description: "Fetch HTML content from URLs, files, and various data sources"
+---
+
+## Overview
+
+The `FetchNode` is responsible for fetching content from various sources including web pages, PDF files, CSV files, JSON files, XML files, and local HTML content. It acts as the starting point in many scraping workflows.
+
+## Class Signature
+
+```python
+class FetchNode(BaseNode):
+    def __init__(
+        self,
+        input: str,
+        output: List[str],
+        node_config: Optional[dict] = None,
+        node_name: str = "Fetch",
+    )
+```
+
+Source: `scrapegraphai/nodes/fetch_node.py:20`
+
+## Parameters
+
+<ParamField path="input" type="str" required>
+  Boolean expression defining the input keys needed from the state. Supported input types:
+  - `url` - Web page URL
+  - `local_dir` - Local HTML content string
+  - `pdf` - Path to PDF file
+  - `csv` - Path to CSV file
+  - `json` - Path to JSON file
+  - `xml` - Path to XML file
+  - `md` - Path to Markdown file
+  - `*_dir` - Directory paths (pdf_dir, csv_dir, json_dir, xml_dir, md_dir)
+</ParamField>
+
+<ParamField path="output" type="List[str]" required>
+  List of output keys to be updated in the state. Typically `["document"]` or `["doc"]`
+</ParamField>
+
+<ParamField path="node_config" type="dict">
+  Configuration dictionary with the following options:
+
+  <Expandable title="Configuration Options">
+    <ParamField path="headless" type="bool" default="True">
+      Whether to run the browser in headless mode
+    </ParamField>
+
+    <ParamField path="verbose" type="bool" default="False">
+      Whether to print verbose output during execution
+    </ParamField>
+
+    <ParamField path="use_soup" type="bool" default="False">
+      Whether to use BeautifulSoup for parsing instead of ChromiumLoader
+    </ParamField>
+
+    <ParamField path="loader_kwargs" type="dict" default="{}">
+      Additional keyword arguments for the ChromiumLoader
+    </ParamField>
+
+    <ParamField path="llm_model" type="object" default="{}">
+      Language model instance (ChatOpenAI or AzureChatOpenAI) for content conversion
+    </ParamField>
+
+    <ParamField path="force" type="bool" default="False">
+      Force markdown conversion even if not using OpenAI models
+    </ParamField>
+
+    <ParamField path="script_creator" type="bool" default="False">
+      Whether the node is being used in script creation mode
+    </ParamField>
+
+    <ParamField path="openai_md_enabled" type="bool" default="False">
+      Whether OpenAI markdown conversion is enabled
+    </ParamField>
+
+    <ParamField path="timeout" type="int" default="30">
+      Timeout in seconds for blocking operations (HTTP requests, PDF parsing, etc.)
+    </ParamField>
+
+    <ParamField path="cut" type="bool" default="True">
+      Whether to cut/cleanup HTML content
+    </ParamField>
+
+    <ParamField path="browser_base" type="dict" default="None">
+      BrowserBase configuration with `api_key` and `project_id`
+    </ParamField>
+
+    <ParamField path="scrape_do" type="dict" default="None">
+      ScrapeDo configuration with `api_key`, `use_proxy`, `geoCode`, and `super_proxy`
+    </ParamField>
+
+    <ParamField path="storage_state" type="dict" default="None">
+      Browser storage state for authenticated sessions
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="node_name" type="str" default="Fetch">
+  The unique identifier name for the node
+</ParamField>
+
+## State Keys
+
+### Input State
+
+<ParamField path="url" type="str">
+  URL of the web page to fetch
+</ParamField>
+
+<ParamField path="local_dir" type="str">
+  Local HTML content as a string
+</ParamField>
+
+<ParamField path="pdf" type="str">
+  Path to PDF file
+</ParamField>
+
+<ParamField path="csv" type="str">
+  Path to CSV file
+</ParamField>
+
+<ParamField path="json" type="str">
+  Path to JSON file
+</ParamField>
+
+<ParamField path="xml" type="str">
+  Path to XML file
+</ParamField>
+
+<ParamField path="md" type="str">
+  Path to Markdown file
+</ParamField>
+
+### Output State
+
+<ParamField path="document" type="List[Document]">
+  List of LangChain Document objects containing the fetched content with metadata
+</ParamField>
+
+<ParamField path="doc" type="List[Document]">
+  Copy of the document list for compatibility
+</ParamField>
+
+## Methods
+
+### execute(state: dict) -> dict
+
+Executes the node's logic to fetch content from the specified source and update the state.
+
+```python
+def execute(self, state):
+    """
+    Executes the node's logic to fetch HTML content from a specified URL and
+    update the state with this content.
+    """
+```
+
+Source: `scrapegraphai/nodes/fetch_node.py:90`
+
+**Returns:** Updated state dictionary with fetched document
+
+### handle_web_source(state: dict, source: str) -> dict
+
+Handles fetching content from web URLs using ChromiumLoader, BrowserBase, or ScrapeDo.
+
+```python
+def handle_web_source(self, state, source):
+    """Handles the web source by fetching HTML content from a URL"""
+```
+
+Source: `scrapegraphai/nodes/fetch_node.py:262`
+
+### handle_file(state: dict, input_type: str, source: str) -> dict
+
+Loads content from files based on their type (PDF, CSV, JSON, XML, MD).
+
+```python
+def handle_file(self, state, input_type, source):
+    """Loads the content of a file based on its input type"""
+```
+
+Source: `scrapegraphai/nodes/fetch_node.py:142`
+
+### handle_local_source(state: dict, source: str) -> dict
+
+Handles local HTML content strings with optional markdown conversion.
+
+```python
+def handle_local_source(self, state, source):
+    """Handles the local source by fetching HTML content"""
+```
+
+Source: `scrapegraphai/nodes/fetch_node.py:219`
+
+## Usage Examples
+
+### Basic Web Scraping
+
+```python
+from scrapegraphai.nodes import FetchNode
+
+# Create fetch node
+fetch_node = FetchNode(
+    input="url",
+    output=["document"],
+    node_config={
+        "headless": True,
+        "verbose": False,
+        "timeout": 30
+    }
+)
+
+# Execute node
+state = {"url": "https://example.com"}
+updated_state = fetch_node.execute(state)
+
+print(updated_state["document"])
+# Output: [Document(page_content="...", metadata={"source": "html file"})]
+```
+
+### Fetch with Browser Automation
+
+```python
+fetch_node = FetchNode(
+    input="url",
+    output=["document"],
+    node_config={
+        "headless": False,
+        "loader_kwargs": {
+            "wait_until": "networkidle",
+            "timeout": 60000
+        }
+    }
+)
+
+state = {"url": "https://dynamic-site.com"}
+updated_state = fetch_node.execute(state)
+```
+
+### Fetch PDF Content
+
+```python
+fetch_node = FetchNode(
+    input="pdf",
+    output=["document"],
+    node_config={
+        "timeout": 60,  # Longer timeout for large PDFs
+        "verbose": True
+    }
+)
+
+state = {"pdf": "/path/to/document.pdf"}
+updated_state = fetch_node.execute(state)
+```
+
+### Fetch with BrowserBase
+
+```python
+fetch_node = FetchNode(
+    input="url",
+    output=["document"],
+    node_config={
+        "browser_base": {
+            "api_key": "your_api_key",
+            "project_id": "your_project_id"
+        }
+    }
+)
+
+state = {"url": "https://protected-site.com"}
+updated_state = fetch_node.execute(state)
+```
+
+### Fetch with Proxy (ScrapeDo)
+
+```python
+fetch_node = FetchNode(
+    input="url",
+    output=["document"],
+    node_config={
+        "scrape_do": {
+            "api_key": "your_api_key",
+            "use_proxy": True,
+            "geoCode": "us",
+            "super_proxy": True
+        }
+    }
+)
+
+state = {"url": "https://geo-restricted.com"}
+updated_state = fetch_node.execute(state)
+```
+
+### Fetch CSV Data
+
+```python
+fetch_node = FetchNode(
+    input="csv",
+    output=["document"]
+)
+
+state = {"csv": "/path/to/data.csv"}
+updated_state = fetch_node.execute(state)
+
+# Document contains CSV data as string
+print(updated_state["document"][0].page_content)
+```
+
+### Fetch with Markdown Conversion
+
+```python
+from langchain_openai import ChatOpenAI
+
+fetch_node = FetchNode(
+    input="url",
+    output=["document"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "force": True,  # Force markdown conversion
+    }
+)
+
+state = {"url": "https://example.com"}
+updated_state = fetch_node.execute(state)
+# Content is automatically converted to markdown
+```
+
+## Supported Input Types
+
+| Input Type | Description | Example |
+|-----------|-------------|----------|
+| `url` | Web page URL | `https://example.com` |
+| `local_dir` | HTML string | `<html>...</html>` |
+| `pdf` | PDF file path | `/path/to/file.pdf` |
+| `csv` | CSV file path | `/path/to/data.csv` |
+| `json` | JSON file path | `/path/to/data.json` |
+| `xml` | XML file path | `/path/to/data.xml` |
+| `md` | Markdown file path | `/path/to/README.md` |
+| `pdf_dir` | PDF directory | `/path/to/pdfs/` |
+| `csv_dir` | CSV directory | `/path/to/csvs/` |
+
+## Error Handling
+
+The FetchNode raises errors in the following scenarios:
+
+- **Invalid input type**: Raises `ValueError` if the input type is not supported
+- **Empty content**: Raises `ValueError` if fetched content is empty or contains only whitespace
+- **Timeout**: Raises `TimeoutError` if operation exceeds configured timeout
+- **HTTP errors**: Logs warning if HTTP request fails (status code != 200)
+
+## Best Practices
+
+1. **Set appropriate timeouts** - Use longer timeouts for large files or slow websites
+2. **Use headless mode in production** - Set `headless=True` for better performance
+3. **Configure loader_kwargs** - Fine-tune ChromiumLoader behavior for dynamic content
+4. **Handle timeouts gracefully** - Wrap node execution in try-except blocks
+5. **Use BrowserBase for complex sites** - Better handling of JavaScript-heavy pages
+6. **Enable markdown conversion** - Improves LLM processing with cleaner text format
+
+## Related Nodes
+
+- [ParseNode](/api/nodes/parse-node) - Parse and chunk the fetched content
+- [GenerateAnswerNode](/api/nodes/generate-answer-node) - Generate answers from fetched content

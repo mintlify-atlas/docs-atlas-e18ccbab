@@ -1,0 +1,452 @@
+---
+title: 'Burr Integration'
+description: 'Use Burr for advanced workflow tracking, debugging, and visualization of your scraping graphs'
+icon: 'chart-network'
+---
+
+## Overview
+
+[Burr](https://github.com/DAGWorks-Inc/burr) is a workflow orchestration framework that brings state machine management, tracking, and visualization to ScrapeGraphAI. It enables you to:
+
+- Track execution state across all nodes
+- Visualize graph execution in real-time
+- Debug workflow issues with detailed logs
+- Resume failed executions from checkpoints
+- Monitor performance metrics
+
+## Installation
+
+Install ScrapeGraphAI with Burr support:
+
+```bash
+pip install scrapegraphai[burr]
+```
+
+<Note>
+Burr requires Python 3.9 or higher.
+</Note>
+
+## Basic Usage
+
+Enable Burr tracking in any ScrapeGraphAI graph:
+
+<Steps>
+  <Step title="Configure Burr Parameters">
+    ```python
+    from scrapegraphai.graphs import SmartScraperGraph
+
+    graph_config = {
+        "llm": {
+            "model": "openai/gpt-4o",
+            "api_key": "your-api-key",
+        },
+        "verbose": True,
+    }
+
+    burr_config = {
+        "project_name": "my_scraping_project",
+        "app_instance_id": "scraper-001",
+    }
+
+    scraper = SmartScraperGraph(
+        prompt="Extract product information including price and description",
+        source="https://example.com/products",
+        config=graph_config,
+        use_burr=True,
+        burr_config=burr_config,
+    )
+    ```
+  </Step>
+
+  <Step title="Execute with Tracking">
+    ```python
+    result = scraper.run()
+    print(result)
+    ```
+  </Step>
+
+  <Step title="Launch Burr UI">
+    ```bash
+    burr
+    ```
+    Navigate to http://localhost:7241 to view your execution.
+  </Step>
+</Steps>
+
+## BurrBridge Architecture
+
+The `BurrBridge` class converts ScrapeGraphAI nodes into Burr actions:
+
+```python ~/workspace/source/scrapegraphai/integrations/burr_bridge.py
+from scrapegraphai.integrations import BurrBridge
+from scrapegraphai.graphs import BaseGraph
+from scrapegraphai.nodes import FetchNode, ParseNode, GenerateAnswerNode
+
+# Create your graph
+graph = BaseGraph(
+    nodes=[fetch_node, parse_node, generate_node],
+    edges=[
+        (fetch_node, parse_node),
+        (parse_node, generate_node),
+    ],
+    entry_point=fetch_node,
+)
+
+# Wrap with BurrBridge
+burr_config = {
+    "project_name": "custom_graph_project",
+    "app_instance_id": "custom-001",
+    "inputs": {},  # Optional initial inputs
+}
+
+bridge = BurrBridge(graph, burr_config)
+
+# Execute with tracking
+initial_state = {
+    "user_prompt": "Extract main content",
+    "url": "https://example.com",
+}
+
+final_state = bridge.execute(initial_state=initial_state)
+print(final_state["answer"])
+```
+
+## Configuration Options
+
+### Burr Config Dictionary
+
+```python
+burr_config = {
+    # Project name for grouping related executions
+    "project_name": "my_scraping_project",
+
+    # Unique identifier for this application instance
+    "app_instance_id": "scraper-001",
+
+    # Optional: Initial inputs to pass to the graph
+    "inputs": {
+        "custom_param": "value",
+    },
+}
+```
+
+### Custom Hooks
+
+Burr uses hooks to track execution lifecycle events:
+
+```python
+from burr.lifecycle import PostRunStepHook, PreRunStepHook
+from burr.core import Action, State
+from typing import Any
+
+class CustomLoggingHook(PostRunStepHook, PreRunStepHook):
+    """Custom hook for detailed logging."""
+
+    def pre_run_step(
+        self,
+        *,
+        state: State,
+        action: Action,
+        **future_kwargs: Any
+    ):
+        print(f"Starting action: {action.name}")
+        print(f"State keys: {list(state.__dict__.keys())}")
+
+    def post_run_step(
+        self,
+        *,
+        state: State,
+        action: Action,
+        **future_kwargs: Any
+    ):
+        print(f"Finished action: {action.name}")
+        print(f"Updated state keys: {list(state.__dict__.keys())}")
+```
+
+<Note>
+The `PrintLnHook` is included by default in BurrBridge, providing basic execution logging.
+</Note>
+
+## Node Bridge Implementation
+
+The `BurrNodeBridge` class adapts ScrapeGraphAI nodes to Burr actions:
+
+```python
+from scrapegraphai.integrations.burr_bridge import BurrNodeBridge
+
+class BurrNodeBridge(Action):
+    """Bridge class to convert a base graph node to a Burr action."""
+
+    def __init__(self, node):
+        super(BurrNodeBridge, self).__init__()
+        self.node = node
+
+    @property
+    def reads(self) -> list[str]:
+        """Returns input keys the node reads from state."""
+        return parse_boolean_expression(self.node.input)
+
+    def run(self, state: State, **run_kwargs) -> dict:
+        """Execute the node with inputs from Burr state."""
+        node_inputs = {key: state[key] for key in self.reads if key in state}
+        result_state = self.node.execute(node_inputs, **run_kwargs)
+        return result_state
+
+    @property
+    def writes(self) -> list[str]:
+        """Returns output keys the node writes to state."""
+        return self.node.output
+
+    def update(self, result: dict, state: State) -> State:
+        """Update Burr state with node outputs."""
+        return state.update(**result)
+```
+
+## Real-World Example
+
+Here's a complete example with custom graph and Burr tracking:
+
+```python
+import os
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+
+from scrapegraphai.graphs import BaseGraph
+from scrapegraphai.nodes import (
+    FetchNode,
+    ParseNode,
+    RAGNode,
+    GenerateAnswerNode,
+)
+from scrapegraphai.integrations import BurrBridge
+
+load_dotenv()
+
+# Configuration
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_APIKEY"),
+        "model": "gpt-4o",
+    },
+}
+
+llm_model = ChatOpenAI(graph_config["llm"])
+embedder = OpenAIEmbeddings(api_key=llm_model.openai_api_key)
+
+# Define nodes
+fetch_node = FetchNode(
+    input="url",
+    output=["doc"],
+    node_config={"verbose": True, "headless": True},
+)
+
+parse_node = ParseNode(
+    input="doc",
+    output=["parsed_doc"],
+    node_config={"chunk_size": 4096, "verbose": True},
+)
+
+rag_node = RAGNode(
+    input="user_prompt & parsed_doc",
+    output=["relevant_chunks"],
+    node_config={
+        "llm_model": llm_model,
+        "embedder_model": embedder,
+        "verbose": True,
+    },
+)
+
+generate_node = GenerateAnswerNode(
+    input="user_prompt & relevant_chunks",
+    output=["answer"],
+    node_config={"llm_model": llm_model, "verbose": True},
+)
+
+# Create graph
+graph = BaseGraph(
+    nodes=[fetch_node, parse_node, rag_node, generate_node],
+    edges=[
+        (fetch_node, parse_node),
+        (parse_node, rag_node),
+        (rag_node, generate_node),
+    ],
+    entry_point=fetch_node,
+)
+
+# Burr integration
+burr_config = {
+    "project_name": "product_scraper",
+    "app_instance_id": "run-001",
+}
+
+bridge = BurrBridge(graph, burr_config)
+
+# Execute with tracking
+initial_state = {
+    "user_prompt": "List all products with their prices",
+    "url": "https://example.com/shop",
+}
+
+final_state = bridge.execute(initial_state=initial_state)
+print(final_state["answer"])
+```
+
+## Visualization in Burr UI
+
+The Burr UI provides:
+
+### Execution Graph View
+- Visual representation of your node graph
+- Highlights currently executing nodes
+- Shows data flow between nodes
+
+### State Inspector
+- View state at any point in execution
+- Inspect input/output for each node
+- Track state changes over time
+
+### Timeline View
+- Chronological execution history
+- Time spent in each node
+- Identify performance bottlenecks
+
+### Error Tracking
+- Detailed error messages and stack traces
+- State at time of failure
+- Easy debugging with state replay
+
+## Advanced Features
+
+### State Persistence
+
+Burr automatically persists execution state:
+
+```python
+from burr import tracking
+
+# Configure persistent tracking
+tracker = tracking.LocalTrackingClient(
+    project="my_project",
+    storage_dir="./burr_tracking"
+)
+
+burr_config = {
+    "project_name": "persistent_scraper",
+    "app_instance_id": "persistent-001",
+}
+```
+
+### Multiple Graph Instances
+
+Track multiple concurrent scraping jobs:
+
+```python
+import uuid
+
+# Create unique instance IDs
+for url in urls:
+    instance_id = f"scraper-{uuid.uuid4()}"
+
+    scraper = SmartScraperGraph(
+        prompt="Extract data",
+        source=url,
+        config=graph_config,
+        use_burr=True,
+        burr_config={
+            "project_name": "bulk_scraper",
+            "app_instance_id": instance_id,
+        },
+    )
+
+    result = scraper.run()
+```
+
+### Spawning Child Applications
+
+Burr supports hierarchical execution tracking:
+
+```python
+from burr.core import ApplicationContext
+
+# Parent application creates child
+with ApplicationContext.get() as context:
+    child_bridge = BurrBridge(child_graph, {
+        "project_name": context.app_id,
+        "app_instance_id": f"child-{uuid.uuid4()}",
+    })
+```
+
+## Troubleshooting
+
+### Burr UI Not Starting
+
+```bash
+# Check if Burr is installed
+pip show burr
+
+# Reinstall if needed
+pip install --upgrade scrapegraphai[burr]
+
+# Launch with custom port
+burr --port 8080
+```
+
+### State Not Updating
+
+Ensure node outputs match expected state keys:
+
+```python
+# In your custom node
+def execute(self, state: dict) -> dict:
+    # Make sure to update state with correct output keys
+    state.update({self.output[0]: result})
+    return state
+```
+
+### Missing Execution Data
+
+Verify `use_burr=True` is set:
+
+```python
+# Correct
+scraper = SmartScraperGraph(
+    ...,
+    use_burr=True,  # ✓
+    burr_config={...}
+)
+
+# Incorrect - no tracking
+scraper = SmartScraperGraph(
+    ...,
+    burr_config={...}  # ✗ Missing use_burr=True
+)
+```
+
+## Performance Considerations
+
+<Warning>
+Burr tracking adds a small overhead to execution time. For production high-throughput scenarios, consider:
+- Disabling tracking after development
+- Using sampling (track only N% of executions)
+- Configuring local storage vs. remote tracking
+</Warning>
+
+## Best Practices
+
+1. **Unique Instance IDs**: Use UUIDs or timestamps for `app_instance_id`
+2. **Project Organization**: Group related scraping jobs under the same `project_name`
+3. **Development vs. Production**: Enable Burr in development, disable in production
+4. **Storage Management**: Regularly clean old tracking data to save disk space
+5. **Error Handling**: Let Burr capture errors naturally - avoid swallowing exceptions
+
+## Resources
+
+- [Burr Documentation](https://burr.dagworks.io/)
+- [Burr GitHub Repository](https://github.com/DAGWorks-Inc/burr)
+- [ScrapeGraphAI Burr Integration Source](~/workspace/source/scrapegraphai/integrations/burr_bridge.py:1)
+
+## Next Steps
+
+- Build [custom graphs](/advanced/custom-graphs) with Burr tracking
+- Create [custom nodes](/advanced/custom-nodes) and track their execution
+- Explore other [integrations](/advanced/integrations) with LangChain and LlamaIndex

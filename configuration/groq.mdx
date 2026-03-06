@@ -1,0 +1,600 @@
+---
+title: 'Groq Configuration'
+description: 'Configure ScrapeGraphAI with Groq for ultra-fast inference speeds'
+icon: 'zap'
+---
+
+## Overview
+
+Groq provides lightning-fast LLM inference using specialized hardware, delivering:
+
+- **Ultra-Fast**: 10x faster inference than traditional providers
+- **Cost-Effective**: Competitive pricing
+- **Open Models**: Access to Llama, Mixtral, and Gemma
+- **High Throughput**: Process more requests per second
+- **Low Latency**: ~100ms response times
+
+Perfect for high-volume scraping and real-time applications.
+
+## Prerequisites
+
+<Steps>
+  <Step title="Get API Key">
+    1. Sign up at [console.groq.com](https://console.groq.com)
+    2. Navigate to API Keys
+    3. Click "Create API Key"
+    4. Copy your API key
+  </Step>
+  
+  <Step title="Install ScrapeGraphAI">
+    ```bash
+    pip install scrapegraphai
+    playwright install
+    ```
+  </Step>
+  
+  <Step title="Set Environment Variable">
+    ```bash
+    export GROQ_API_KEY="gsk_..."
+    ```
+    
+    Or create a `.env` file:
+    ```bash
+    GROQ_API_KEY=gsk_...
+    ```
+  </Step>
+</Steps>
+
+## Basic Configuration
+
+```python
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GROQ_API_KEY"),
+        "model": "groq/llama-3.3-70b-versatile",
+        "temperature": 0,
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+smart_scraper_graph = SmartScraperGraph(
+    prompt="List me all the projects with their description",
+    source="https://perinim.github.io/projects/",
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+print(result)
+```
+
+<Note>
+  This example is based on: `examples/extras/undected_playwright.py` and `examples/extras/cond_smartscraper_usage.py`
+</Note>
+
+## Available Models
+
+<Tabs>
+  <Tab title="Recommended">
+    ### Llama 3.3 70B (Best Quality)
+    
+    ```python
+    graph_config = {
+        "llm": {
+            "api_key": os.getenv("GROQ_API_KEY"),
+            "model": "groq/llama-3.3-70b-versatile",
+            "temperature": 0,
+        },
+    }
+    ```
+    
+    - **Context**: 128K tokens
+    - **Speed**: Very fast
+    - **Best for**: High accuracy scraping
+
+    ### Llama 3.1 8B Instant (Fastest)
+    
+    ```python
+    graph_config = {
+        "llm": {
+            "api_key": os.getenv("GROQ_API_KEY"),
+            "model": "groq/llama-3.1-8b-instant",
+            "temperature": 0,
+        },
+    }
+    ```
+    
+    - **Context**: 128K tokens
+    - **Speed**: Ultra fast
+    - **Best for**: Speed-critical applications
+  </Tab>
+  
+  <Tab title="All Models">
+    Complete list of Groq models:
+
+    | Model | Context | Speed | Best For |
+    |-------|---------|-------|----------|
+    | `llama-3.3-70b-versatile` | 128K | Very Fast | Best quality |
+    | `llama-3.1-8b-instant` | 128K | Ultra Fast | Speed priority |
+    | `llama3-70b-8192` | 8K | Fast | Legacy |
+    | `llama3-8b-8192` | 8K | Very Fast | Legacy |
+    | `mixtral-8x7b-32768` | 32K | Fast | Good balance |
+    | `gemma2-9b-it` | 8K | Very Fast | Google model |
+    | `gemma-7b-it` | 8K | Very Fast | Lightweight |
+    
+    <Info>
+      Use `llama-3.3-70b-versatile` or `llama-3.1-8b-instant` for best results.
+    </Info>
+  </Tab>
+  
+  <Tab title="Comparison">
+    Speed comparison (approximate):
+    
+    ```
+    Model                     Tokens/sec
+    ─────────────────────────────────────
+    llama-3.1-8b-instant      ~800
+    llama-3.3-70b-versatile   ~300
+    gemma2-9b-it              ~700
+    mixtral-8x7b-32768        ~500
+    ```
+    
+    <Note>
+      All Groq models are significantly faster than traditional cloud providers.
+    </Note>
+  </Tab>
+</Tabs>
+
+## Configuration Options
+
+### Temperature
+
+Control output randomness:
+
+```python
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GROQ_API_KEY"),
+        "model": "groq/llama-3.3-70b-versatile",
+        "temperature": 0,  # Deterministic (recommended for scraping)
+    },
+}
+```
+
+- `0`: Deterministic, consistent
+- `0.5`: Balanced
+- `1.0`: Creative, varied
+
+<Warning>
+  Always use `temperature: 0` for web scraping to ensure consistent results.
+</Warning>
+
+### Max Tokens
+
+Limit response length:
+
+```python
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GROQ_API_KEY"),
+        "model": "groq/llama-3.3-70b-versatile",
+        "max_tokens": 4000,
+    },
+}
+```
+
+### Top P (Nucleus Sampling)
+
+Control diversity:
+
+```python
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GROQ_API_KEY"),
+        "model": "groq/llama-3.3-70b-versatile",
+        "temperature": 0,
+        "top_p": 1.0,  # Default
+    },
+}
+```
+
+## Complete Examples
+
+<CodeGroup>
+```python Basic Scraping
+import os
+import json
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+from scrapegraphai.utils import prettify_exec_info
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GROQ_API_KEY"),
+        "model": "groq/llama-3.3-70b-versatile",
+        "temperature": 0,
+    },
+    "verbose": True,
+    "headless": True,
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Extract all article titles and summaries",
+    source="https://www.wired.com",
+    config=graph_config,
+)
+
+result = smart_scraper.run()
+print(json.dumps(result, indent=4))
+
+graph_exec_info = smart_scraper.get_execution_info()
+print(prettify_exec_info(graph_exec_info))
+```
+
+```python High-Speed Scraping
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+import time
+
+load_dotenv()
+
+# Use fastest model for maximum throughput
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GROQ_API_KEY"),
+        "model": "groq/llama-3.1-8b-instant",  # Fastest model
+        "temperature": 0,
+    },
+    "headless": True,
+    "verbose": False,
+}
+
+urls = [
+    "https://example.com/page1",
+    "https://example.com/page2",
+    "https://example.com/page3",
+    "https://example.com/page4",
+    "https://example.com/page5",
+]
+
+start_time = time.time()
+results = []
+
+for url in urls:
+    scraper = SmartScraperGraph(
+        prompt="Extract product name and price",
+        source=url,
+        config=graph_config,
+    )
+    result = scraper.run()
+    results.append(result)
+    print(f"Scraped {url}")
+
+end_time = time.time()
+print(f"\nScraped {len(urls)} pages in {end_time - start_time:.2f} seconds")
+print(f"Average: {(end_time - start_time) / len(urls):.2f} seconds per page")
+```
+
+```python With Retry Logic
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+from tenacity import retry, wait_exponential, stop_after_attempt
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GROQ_API_KEY"),
+        "model": "groq/llama-3.3-70b-versatile",
+        "temperature": 0,
+    },
+    "verbose": True,
+}
+
+@retry(wait=wait_exponential(min=1, max=10), stop=stop_after_attempt(3))
+def scrape_with_retry(url, prompt):
+    scraper = SmartScraperGraph(
+        prompt=prompt,
+        source=url,
+        config=graph_config,
+    )
+    return scraper.run()
+
+result = scrape_with_retry(
+    url="https://example.com",
+    prompt="Extract all product information"
+)
+print(result)
+```
+
+```python Conditional Scraping
+import os
+import json
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GROQ_API_KEY"),
+        "model": "groq/gemma-7b-it",
+        "temperature": 0,
+    },
+    "verbose": True,
+    "headless": True,
+    "reattempt": True,  # Retry on failure
+}
+
+multiple_search_graph = SmartScraperGraph(
+    prompt="Extract founder information",
+    source="https://perinim.github.io/",
+    schema=None,
+    config=graph_config,
+)
+
+result = multiple_search_graph.run()
+print(json.dumps(result, indent=4))
+```
+</CodeGroup>
+
+## Performance Optimization
+
+<AccordionGroup>
+  <Accordion title="Use Fastest Model">
+    For maximum throughput:
+    
+    ```python
+    "model": "groq/llama-3.1-8b-instant"  # Ultra fast
+    ```
+  </Accordion>
+  
+  <Accordion title="Enable Headless Mode">
+    Browser runs faster in background:
+    
+    ```python
+    "headless": True  # 20-30% faster
+    ```
+  </Accordion>
+  
+  <Accordion title="Parallel Processing">
+    Process multiple URLs concurrently:
+    
+    ```python
+    from concurrent.futures import ThreadPoolExecutor
+    
+    def scrape_url(url):
+        scraper = SmartScraperGraph(
+            prompt="Extract data",
+            source=url,
+            config=graph_config,
+        )
+        return scraper.run()
+    
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        results = list(executor.map(scrape_url, urls))
+    ```
+  </Accordion>
+  
+  <Accordion title="Reduce Max Tokens">
+    Limit output for faster responses:
+    
+    ```python
+    "max_tokens": 2000  # Smaller = faster
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Rate Limits
+
+Groq has generous rate limits:
+
+- **Free Tier**: 30 requests/minute
+- **Paid Tier**: Higher limits available
+
+<Info>
+  Groq's high inference speed means you can process more data even with rate limits.
+</Info>
+
+Implement rate limiting:
+
+```python
+import time
+from ratelimit import limits, sleep_and_retry
+
+@sleep_and_retry
+@limits(calls=30, period=60)  # 30 requests per minute
+def scrape_with_rate_limit(url):
+    scraper = SmartScraperGraph(
+        prompt="Extract data",
+        source=url,
+        config=graph_config,
+    )
+    return scraper.run()
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="API Key Invalid">
+    **Error**: `AuthenticationError: Invalid API key`
+    
+    **Solution**:
+    1. Verify API key at [console.groq.com](https://console.groq.com)
+    2. Ensure it starts with `gsk_`
+    3. Check environment variable:
+    ```bash
+    echo $GROQ_API_KEY
+    ```
+  </Accordion>
+  
+  <Accordion title="Rate Limit Exceeded">
+    **Error**: `429 Rate limit exceeded`
+    
+    **Solution**: Implement rate limiting:
+    ```python
+    import time
+    
+    for url in urls:
+        result = scraper.run()
+        time.sleep(2)  # Wait 2 seconds between requests
+    ```
+  </Accordion>
+  
+  <Accordion title="Timeout Errors">
+    **Error**: `Request timeout`
+    
+    **Solution**: Increase timeout:
+    ```python
+    graph_config = {
+        "llm": {
+            "api_key": os.getenv("GROQ_API_KEY"),
+            "model": "groq/llama-3.3-70b-versatile",
+            "request_timeout": 60,  # 60 seconds
+        },
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Context Length Exceeded">
+    **Error**: `Context length exceeded`
+    
+    **Solution**: Use model with larger context:
+    ```python
+    # Use Llama 3.3 or Llama 3.1 (128K tokens)
+    "model": "groq/llama-3.3-70b-versatile"  # 128K context
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Advantages of Groq
+
+<CardGroup cols={2}>
+  <Card title="Ultra Fast" icon="bolt">
+    10x faster inference than traditional providers - perfect for high-volume scraping.
+  </Card>
+  
+  <Card title="Cost-Effective" icon="dollar-sign">
+    Competitive pricing with generous free tier for testing.
+  </Card>
+  
+  <Card title="Open Models" icon="code">
+    Access to latest Llama, Mixtral, and Gemma models.
+  </Card>
+  
+  <Card title="Low Latency" icon="gauge-high">
+    ~100ms response times for real-time applications.
+  </Card>
+</CardGroup>
+
+## Use Cases
+
+<Tabs>
+  <Tab title="High-Volume Scraping">
+    Groq excels at scraping many pages quickly:
+    
+    ```python
+    # Scrape 100+ pages efficiently
+    for url in large_url_list:
+        result = scraper.run()
+        # Process in milliseconds!
+    ```
+  </Tab>
+  
+  <Tab title="Real-Time Applications">
+    Low latency for live data:
+    
+    ```python
+    # Update dashboards in real-time
+    while True:
+        data = scraper.run()
+        update_dashboard(data)
+        time.sleep(60)
+    ```
+  </Tab>
+  
+  <Tab title="API Endpoints">
+    Fast enough for API responses:
+    
+    ```python
+    from fastapi import FastAPI
+    
+    app = FastAPI()
+    
+    @app.get("/scrape")
+    async def scrape_endpoint(url: str):
+        result = scraper.run()  # Fast response
+        return result
+    ```
+  </Tab>
+</Tabs>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Latest Models" icon="arrow-up">
+    Llama 3.3 and 3.1 offer best performance:
+    ```python
+    "model": "groq/llama-3.3-70b-versatile"
+    ```
+  </Card>
+  
+  <Card title="Temperature 0" icon="thermometer">
+    For consistent scraping:
+    ```python
+    "temperature": 0
+    ```
+  </Card>
+  
+  <Card title="Implement Retries" icon="rotate">
+    Handle transient errors:
+    ```python
+    @retry(stop=stop_after_attempt(3))
+    def scrape(): ...
+    ```
+  </Card>
+  
+  <Card title="Monitor Usage" icon="chart-line">
+    Track API usage and costs in Groq console.
+  </Card>
+</CardGroup>
+
+## Speed Comparison
+
+Approximate scraping times per page:
+
+```
+Provider              Time
+────────────────────────────
+Groq (llama-3.1-8b)   ~2-3s
+Groq (llama-3.3-70b)  ~3-5s
+OpenAI (gpt-4o-mini)  ~8-12s
+OpenAI (gpt-4o)       ~10-15s
+Anthropic (claude)    ~8-12s
+Ollama (local)        ~5-20s
+```
+
+<Note>
+  Times vary based on page complexity and prompt. Groq is consistently fastest for cloud providers.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Advanced Configuration" icon="sliders" href="/configuration/advanced">
+    Learn about proxy rotation and browser settings
+  </Card>
+  <Card title="OpenAI" icon="openai" href="/configuration/openai">
+    Compare with OpenAI models
+  </Card>
+</CardGroup>

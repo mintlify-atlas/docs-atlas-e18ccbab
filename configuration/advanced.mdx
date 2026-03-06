@@ -1,0 +1,749 @@
+---
+title: 'Advanced Configuration'
+description: 'Advanced configuration options including proxy rotation, custom headers, timeouts, and browser settings'
+icon: 'sliders'
+---
+
+## Overview
+
+This guide covers advanced configuration options for ScrapeGraphAI, including:
+
+- Proxy rotation and authentication
+- Custom headers and user agents
+- Timeout and retry settings
+- Browser configuration
+- Authentication and sessions
+- Performance optimization
+
+## Proxy Configuration
+
+### Basic Proxy
+
+Use a proxy server for scraping:
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+
+graph_config = {
+    "llm": {
+        "api_key": "API_KEY",
+        "model": "openai/gpt-4o-mini",
+    },
+    "loader_kwargs": {
+        "proxy": {
+            "server": "http://proxy.example.com:8080",
+        },
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract all content",
+    source="https://example.com",
+    config=graph_config,
+)
+
+result = scraper.run()
+```
+
+<Note>
+  This example is from: `examples/extras/proxy_rotation.py`
+</Note>
+
+### Authenticated Proxy
+
+Use proxy with username and password:
+
+```python
+graph_config = {
+    "llm": {
+        "api_key": "API_KEY",
+        "model": "openai/gpt-4o-mini",
+    },
+    "loader_kwargs": {
+        "proxy": {
+            "server": "http://proxy.example.com:8080",
+            "username": "your_username",
+            "password": "your_password",
+        },
+    },
+}
+```
+
+### Rotating Proxies
+
+Rotate between multiple proxies:
+
+```python
+import random
+
+proxies = [
+    {"server": "http://proxy1.example.com:8080", "username": "user1", "password": "pass1"},
+    {"server": "http://proxy2.example.com:8080", "username": "user2", "password": "pass2"},
+    {"server": "http://proxy3.example.com:8080", "username": "user3", "password": "pass3"},
+]
+
+for url in urls:
+    # Randomly select a proxy
+    proxy = random.choice(proxies)
+    
+    graph_config = {
+        "llm": {
+            "api_key": "API_KEY",
+            "model": "openai/gpt-4o-mini",
+        },
+        "loader_kwargs": {
+            "proxy": proxy,
+        },
+    }
+    
+    scraper = SmartScraperGraph(
+        prompt="Extract data",
+        source=url,
+        config=graph_config,
+    )
+    
+    result = scraper.run()
+    print(result)
+```
+
+### Proxy Services Integration
+
+<Tabs>
+  <Tab title="Bright Data">
+    ```python
+    graph_config = {
+        "llm": {...},
+        "loader_kwargs": {
+            "proxy": {
+                "server": "http://brd.superproxy.io:22225",
+                "username": "brd-customer-USER-zone-ZONE",
+                "password": "PASSWORD",
+            },
+        },
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Oxylabs">
+    ```python
+    graph_config = {
+        "llm": {...},
+        "loader_kwargs": {
+            "proxy": {
+                "server": "http://pr.oxylabs.io:7777",
+                "username": "customer-USERNAME",
+                "password": "PASSWORD",
+            },
+        },
+    }
+    ```
+  </Tab>
+  
+  <Tab title="SmartProxy">
+    ```python
+    graph_config = {
+        "llm": {...},
+        "loader_kwargs": {
+            "proxy": {
+                "server": "http://gate.smartproxy.com:7000",
+                "username": "USERNAME",
+                "password": "PASSWORD",
+            },
+        },
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Browser Configuration
+
+### Headless Mode
+
+Run browser in background (faster):
+
+```python
+graph_config = {
+    "llm": {...},
+    "headless": True,  # Run in background
+}
+```
+
+<Info>
+  Headless mode is 20-30% faster but you can't see the browser. Use `headless: False` for debugging.
+</Info>
+
+### Browser Type
+
+Choose browser backend:
+
+```python
+graph_config = {
+    "llm": {...},
+    "backend": "playwright",  # Default: playwright
+    "headless": True,
+}
+```
+
+Available backends:
+- `playwright` - Default, best compatibility
+- `undetected_chromedriver` - Bypass bot detection
+- `selenium` - Legacy support
+
+### Undetected ChromeDriver
+
+Bypass bot detection systems:
+
+```python
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GROQ_API_KEY"),
+        "model": "groq/gemma-7b-it",
+        "temperature": 0,
+    },
+    "headless": False,
+    "backend": "undetected_chromedriver",  # Bypass detection
+}
+
+smart_scraper_graph = SmartScraperGraph(
+    prompt="List me all the projects with their description.",
+    source="https://perinim.github.io/projects/",
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+print(result)
+```
+
+<Note>
+  From: `examples/extras/undected_playwright.py`
+</Note>
+
+### Slow Motion
+
+Add delays between actions:
+
+```python
+graph_config = {
+    "llm": {...},
+    "loader_kwargs": {
+        "slow_mo": 10000,  # Delay in milliseconds (10 seconds)
+    },
+    "headless": False,
+}
+```
+
+<Note>
+  From: `examples/extras/slow_mo.py`
+</Note>
+
+<Info>
+  Use slow motion to avoid triggering rate limits or to debug scraping issues.
+</Info>
+
+## Authentication
+
+### Session Storage (Cookies)
+
+Use saved browser sessions for authenticated scraping:
+
+```python
+import os
+from dotenv import load_dotenv
+from playwright.async_api import async_playwright
+from scrapegraphai.graphs import OmniScraperGraph
+
+load_dotenv()
+
+# First, login and save session
+async def do_login():
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch(
+            timeout=30000,
+            headless=False,
+        )
+        page = await browser.new_page()
+        
+        await page.goto("https://www.linkedin.com/login")
+        await page.get_by_label("Email or phone").fill("user@example.com")
+        await page.get_by_label("Password").fill("password123")
+        await page.get_by_role("button", name="Sign in").click()
+        await page.wait_for_timeout(3000)
+        
+        # Save session cookies
+        await page.context.storage_state(path="./state.json")
+
+# Then use saved session
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o",
+    },
+    "storage_state": "./state.json",  # Load saved session
+    "headless": False,
+}
+
+omni_scraper_graph = OmniScraperGraph(
+    prompt="Extract feed content",
+    source="https://www.linkedin.com/feed/",
+    config=graph_config,
+)
+
+result = omni_scraper_graph.run()
+print(result)
+```
+
+<Note>
+  From: `examples/extras/authenticated_playwright.py`
+</Note>
+
+### Custom Headers
+
+Add custom HTTP headers:
+
+```python
+graph_config = {
+    "llm": {...},
+    "loader_kwargs": {
+        "extra_http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Referer": "https://www.google.com/",
+            "Custom-Header": "custom-value",
+        },
+    },
+}
+```
+
+## Timeout Configuration
+
+### Page Load Timeout
+
+Set maximum time to wait for page load:
+
+```python
+graph_config = {
+    "llm": {...},
+    "loader_kwargs": {
+        "timeout": 60000,  # 60 seconds (in milliseconds)
+    },
+}
+```
+
+### Navigation Timeout
+
+Set timeout for navigation actions:
+
+```python
+graph_config = {
+    "llm": {...},
+    "loader_kwargs": {
+        "navigation_timeout": 30000,  # 30 seconds
+    },
+}
+```
+
+## External Services Integration
+
+### BrowserBase
+
+Use BrowserBase for managed browser automation:
+
+```python
+import json
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o",
+    },
+    "browser_base": {
+        "api_key": os.getenv("BROWSER_BASE_API_KEY"),
+        "project_id": os.getenv("BROWSER_BASE_PROJECT_ID"),
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+smart_scraper_graph = SmartScraperGraph(
+    prompt="List me what does the company do, the name and a contact email.",
+    source="https://scrapegraphai.com/",
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+print(json.dumps(result, indent=4))
+```
+
+<Note>
+  From: `examples/extras/browser_base_integration.py`
+</Note>
+
+### ScrapeDo
+
+Integrate with ScrapeDo proxy service:
+
+```python
+import json
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o",
+    },
+    "scrape_do": {
+        "api_key": os.getenv("SCRAPE_DO_API_KEY"),
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+smart_scraper_graph = SmartScraperGraph(
+    prompt="List me all the projects",
+    source="https://perinim.github.io/projects/",
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+print(json.dumps(result, indent=4))
+```
+
+<Note>
+  From: `examples/extras/scrape_do.py`
+</Note>
+
+## Performance Optimization
+
+### Enable Verbose Mode
+
+See detailed execution logs:
+
+```python
+graph_config = {
+    "llm": {...},
+    "verbose": True,  # Enable detailed logging
+}
+```
+
+### Force Mode
+
+Force scraping even with errors:
+
+```python
+graph_config = {
+    "llm": {...},
+    "force": True,  # Continue on errors
+}
+```
+
+### Reattempt on Failure
+
+Automatically retry failed scrapes:
+
+```python
+graph_config = {
+    "llm": {...},
+    "reattempt": True,  # Retry on failure
+}
+```
+
+### HTML Mode
+
+Work with pre-downloaded HTML:
+
+```python
+html_content = """
+<html>
+    <body>
+        <h1>Title</h1>
+        <p>Content here</p>
+    </body>
+</html>
+"""
+
+graph_config = {
+    "llm": {...},
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract content",
+    source=html_content,  # Pass HTML directly
+    config=graph_config,
+)
+
+result = scraper.run()
+```
+
+## Custom Prompts
+
+### Additional Context
+
+Provide extra context to the LLM:
+
+```python
+import json
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+prompt = "Additional context about what to extract"
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o-mini",
+    },
+    "additional_info": prompt,  # Extra context
+    "verbose": True,
+    "headless": False,
+}
+
+smart_scraper_graph = SmartScraperGraph(
+    prompt="List me all the projects with their description",
+    source="https://perinim.github.io/projects/",
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+print(json.dumps(result, indent=4))
+```
+
+<Note>
+  From: `examples/extras/custom_prompt.py`
+</Note>
+
+## Screenshot Configuration
+
+Take screenshots during scraping:
+
+```python
+graph_config = {
+    "llm": {...},
+    "loader_kwargs": {
+        "screenshot": True,
+        "screenshot_path": "./screenshots/",
+    },
+}
+```
+
+## Complete Advanced Example
+
+<CodeGroup>
+```python Production Configuration
+import os
+import random
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+from tenacity import retry, wait_exponential, stop_after_attempt
+
+load_dotenv()
+
+# Proxy pool
+proxies = [
+    {"server": "http://proxy1.example.com:8080", "username": "user1", "password": "pass1"},
+    {"server": "http://proxy2.example.com:8080", "username": "user2", "password": "pass2"},
+]
+
+# User agents pool
+user_agents = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+]
+
+@retry(wait=wait_exponential(min=1, max=60), stop=stop_after_attempt(3))
+def scrape_with_rotation(url, prompt):
+    # Rotate proxy and user agent
+    proxy = random.choice(proxies)
+    user_agent = random.choice(user_agents)
+    
+    graph_config = {
+        "llm": {
+            "api_key": os.getenv("OPENAI_API_KEY"),
+            "model": "openai/gpt-4o-mini",
+            "temperature": 0,
+        },
+        "loader_kwargs": {
+            "proxy": proxy,
+            "extra_http_headers": {
+                "User-Agent": user_agent,
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+            "timeout": 60000,
+            "slow_mo": 1000,  # 1 second delay
+        },
+        "headless": True,
+        "verbose": False,
+        "reattempt": True,
+    }
+    
+    scraper = SmartScraperGraph(
+        prompt=prompt,
+        source=url,
+        config=graph_config,
+    )
+    
+    return scraper.run()
+
+# Usage
+result = scrape_with_rotation(
+    url="https://example.com",
+    prompt="Extract all product information"
+)
+print(result)
+```
+
+```python High-Security Setup
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o-mini",
+        "temperature": 0,
+    },
+    "loader_kwargs": {
+        "proxy": {
+            "server": os.getenv("PROXY_SERVER"),
+            "username": os.getenv("PROXY_USERNAME"),
+            "password": os.getenv("PROXY_PASSWORD"),
+        },
+        "extra_http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Referer": "https://www.google.com/",
+            "DNT": "1",
+        },
+        "timeout": 90000,
+        "slow_mo": 2000,
+    },
+    "backend": "undetected_chromedriver",
+    "headless": True,
+    "verbose": False,
+    "reattempt": True,
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract data",
+    source="https://protected-site.com",
+    config=graph_config,
+)
+
+result = scraper.run()
+print(result)
+```
+</CodeGroup>
+
+## Configuration Reference
+
+Complete list of available options:
+
+```python
+graph_config = {
+    # LLM Configuration
+    "llm": {
+        "api_key": "your-api-key",
+        "model": "provider/model-name",
+        "temperature": 0,
+        "max_tokens": 4000,
+        "top_p": 1.0,
+    },
+    
+    # Browser Settings
+    "headless": True,
+    "backend": "playwright",  # or "undetected_chromedriver", "selenium"
+    
+    # Loader Settings
+    "loader_kwargs": {
+        "proxy": {
+            "server": "http://proxy.example.com:8080",
+            "username": "user",
+            "password": "pass",
+        },
+        "extra_http_headers": {
+            "User-Agent": "Custom User Agent",
+        },
+        "timeout": 60000,
+        "navigation_timeout": 30000,
+        "slow_mo": 1000,
+        "screenshot": True,
+        "screenshot_path": "./screenshots/",
+    },
+    
+    # Behavior Settings
+    "verbose": True,
+    "force": False,
+    "reattempt": True,
+    
+    # External Services
+    "browser_base": {
+        "api_key": "browserbase-key",
+        "project_id": "project-id",
+    },
+    "scrape_do": {
+        "api_key": "scrapedo-key",
+    },
+    
+    # Authentication
+    "storage_state": "./state.json",
+    
+    # Custom Context
+    "additional_info": "Extra context for LLM",
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Rotate Proxies" icon="rotate">
+    Use proxy rotation to avoid IP bans and rate limits.
+  </Card>
+  
+  <Card title="Implement Retries" icon="arrows-rotate">
+    Always use retry logic with exponential backoff for production.
+  </Card>
+  
+  <Card title="Use Slow Motion" icon="gauge">
+    Add delays to avoid triggering anti-bot systems.
+  </Card>
+  
+  <Card title="Monitor Logs" icon="file-lines">
+    Enable verbose mode during development to debug issues.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="LLM Providers" icon="brain" href="/configuration/llm-providers">
+    Learn about all supported LLM providers
+  </Card>
+  <Card title="OpenAI Setup" icon="openai" href="/configuration/openai">
+    Configure OpenAI models
+  </Card>
+</CardGroup>

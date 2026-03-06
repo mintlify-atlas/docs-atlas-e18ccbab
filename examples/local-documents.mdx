@@ -1,0 +1,396 @@
+---
+title: Local Documents
+description: Extract data from CSV files, PDFs, and text documents
+icon: file
+---
+
+ScrapeGraphAI can process local documents including CSV files, PDFs, text files, and more. This is perfect for extracting structured information from your existing documents.
+
+## Overview
+
+This example demonstrates how to:
+- Process CSV files with natural language queries
+- Extract data from text documents
+- Use DocumentScraperGraph for various file types
+- Handle different document formats
+
+## CSV Scraping Example
+
+Extract structured data from CSV files using natural language:
+
+```python
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import CSVScraperGraph
+from scrapegraphai.utils import prettify_exec_info
+
+load_dotenv()
+
+# Read the CSV file
+FILE_NAME = "inputs/username.csv"
+curr_dir = os.path.dirname(os.path.realpath(__file__))
+file_path = os.path.join(curr_dir, FILE_NAME)
+
+with open(file_path, "r") as file:
+    text = file.read()
+
+# Define the configuration for the graph
+openai_key = os.getenv("OPENAI_APIKEY")
+
+graph_config = {
+    "llm": {
+        "api_key": openai_key,
+        "model": "openai/gpt-4o",
+    },
+}
+
+# Create the CSVScraperGraph instance and run it
+csv_scraper_graph = CSVScraperGraph(
+    prompt="List me all the last names",
+    source=str(text),  # Pass the content of the file
+    config=graph_config,
+)
+
+result = csv_scraper_graph.run()
+print(result)
+
+# Get graph execution info
+graph_exec_info = csv_scraper_graph.get_execution_info()
+print(prettify_exec_info(graph_exec_info))
+```
+
+## Document Scraping Example
+
+Process text documents and extract structured information:
+
+```python
+import json
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import DocumentScraperGraph
+
+load_dotenv()
+
+openai_key = os.getenv("OPENAI_APIKEY")
+
+graph_config = {
+    "llm": {
+        "api_key": openai_key,
+        "model": "openai/gpt-4o",
+    }
+}
+
+source = """
+    The Divine Comedy, Italian La Divina Commedia, original name La commedia, 
+    long narrative poem written in Italian circa 1308/21 by Dante. It is usually 
+    held to be one of the world's great works of literature.
+    Divided into three major sections—Inferno, Purgatorio, and Paradiso—the 
+    narrative traces the journey of Dante from darkness and error to the 
+    revelation of the divine light, culminating in the Beatific Vision of God.
+    Dante is guided by the Roman poet Virgil, who represents the epitome of 
+    human knowledge, from the dark wood through the descending circles of the 
+    pit of Hell (Inferno). He then climbs the mountain of Purgatory, guided
+    by the Roman poet Statius, who represents the fulfilment of human knowledge, 
+    and is finally led by his lifelong love, the Beatrice of his earlier poetry, 
+    through the celestial spheres of Paradise.
+"""
+
+pdf_scraper_graph = DocumentScraperGraph(
+    prompt="Summarize the text and find the main topics",
+    source=source,
+    config=graph_config,
+)
+
+result = pdf_scraper_graph.run()
+print(json.dumps(result, indent=4))
+```
+
+## Step-by-Step: CSV Processing
+
+<Steps>
+  <Step title="Read the file">
+    ```python
+    FILE_NAME = "inputs/username.csv"
+    curr_dir = os.path.dirname(os.path.realpath(__file__))
+    file_path = os.path.join(curr_dir, FILE_NAME)
+    
+    with open(file_path, "r") as file:
+        text = file.read()
+    ```
+    
+    Read the CSV file content as a string. The graph accepts the file content, not the file object.
+  </Step>
+  
+  <Step title="Configure the graph">
+    ```python
+    graph_config = {
+        "llm": {
+            "api_key": os.getenv("OPENAI_APIKEY"),
+            "model": "openai/gpt-4o",
+        },
+    }
+    ```
+    
+    Use a capable model like GPT-4o for better understanding of tabular data.
+  </Step>
+  
+  <Step title="Create CSV scraper">
+    ```python
+    csv_scraper_graph = CSVScraperGraph(
+        prompt="List me all the last names",
+        source=str(text),
+        config=graph_config,
+    )
+    ```
+    
+    Use natural language to describe what data you want to extract from the CSV.
+  </Step>
+  
+  <Step title="Process results">
+    ```python
+    result = csv_scraper_graph.run()
+    print(result)
+    ```
+    
+    The graph intelligently parses the CSV and returns the requested data.
+  </Step>
+</Steps>
+
+## Supported Document Types
+
+<Tabs>
+  <Tab title="CSV">
+    ```python
+    from scrapegraphai.graphs import CSVScraperGraph
+    
+    # Read CSV content
+    with open("data.csv", "r") as f:
+        csv_content = f.read()
+    
+    graph = CSVScraperGraph(
+        prompt="Extract all email addresses",
+        source=csv_content,
+        config=graph_config,
+    )
+    ```
+    
+    Perfect for processing tabular data and spreadsheets.
+  </Tab>
+  
+  <Tab title="Text/Documents">
+    ```python
+    from scrapegraphai.graphs import DocumentScraperGraph
+    
+    # Can be plain text, loaded from files, etc.
+    document_text = """Your document content here..."""
+    
+    graph = DocumentScraperGraph(
+        prompt="Extract key information",
+        source=document_text,
+        config=graph_config,
+    )
+    ```
+    
+    Works with plain text, PDFs (as text), and other document formats.
+  </Tab>
+  
+  <Tab title="JSON">
+    ```python
+    from scrapegraphai.graphs import JSONScraperGraph
+    
+    # Read JSON content
+    with open("data.json", "r") as f:
+        json_content = f.read()
+    
+    graph = JSONScraperGraph(
+        prompt="Find all products with price > 100",
+        source=json_content,
+        config=graph_config,
+    )
+    ```
+    
+    Query JSON documents with natural language.
+  </Tab>
+  
+  <Tab title="XML">
+    ```python
+    from scrapegraphai.graphs import XMLScraperGraph
+    
+    # Read XML content
+    with open("data.xml", "r") as f:
+        xml_content = f.read()
+    
+    graph = XMLScraperGraph(
+        prompt="Extract all product names and prices",
+        source=xml_content,
+        config=graph_config,
+    )
+    ```
+    
+    Parse XML documents without writing XPath queries.
+  </Tab>
+</Tabs>
+
+## Expected Output: CSV Example
+
+Given a CSV file:
+
+```csv
+first_name,last_name,email
+John,Doe,john@example.com
+Jane,Smith,jane@example.com
+Bob,Johnson,bob@example.com
+```
+
+With prompt "List me all the last names":
+
+```json
+{
+    "last_names": [
+        "Doe",
+        "Smith",
+        "Johnson"
+    ]
+}
+```
+
+## Expected Output: Document Example
+
+For the Divine Comedy text with prompt "Summarize the text and find the main topics":
+
+```json
+{
+    "summary": "The Divine Comedy is a long narrative poem by Dante written circa 1308-1321, divided into three sections: Inferno, Purgatorio, and Paradiso. It traces Dante's journey from darkness to divine enlightenment.",
+    "main_topics": [
+        "Italian literature",
+        "Dante's spiritual journey",
+        "Three realms: Hell, Purgatory, Paradise",
+        "Guidance by Virgil, Statius, and Beatrice",
+        "Medieval Christian theology"
+    ],
+    "key_figures": [
+        "Dante",
+        "Virgil",
+        "Statius",
+        "Beatrice"
+    ]
+}
+```
+
+## Common Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Data Extraction" icon="filter">
+    Extract specific fields from CSV files without writing pandas code
+  </Card>
+  
+  <Card title="Document Analysis" icon="magnifying-glass">
+    Summarize and extract key information from text documents
+  </Card>
+  
+  <Card title="Format Conversion" icon="rotate">
+    Convert between formats (CSV to JSON, XML to structured data)
+  </Card>
+  
+  <Card title="Data Validation" icon="check">
+    Find inconsistencies or specific patterns in documents
+  </Card>
+</CardGroup>
+
+## Processing Multiple CSV Files
+
+```python
+from scrapegraphai.graphs import CSVScraperMultiGraph
+
+csv_files = [
+    "data/sales_q1.csv",
+    "data/sales_q2.csv",
+    "data/sales_q3.csv",
+]
+
+csv_contents = []
+for file_path in csv_files:
+    with open(file_path, "r") as f:
+        csv_contents.append(f.read())
+
+multi_csv_graph = CSVScraperMultiGraph(
+    prompt="Calculate total sales for each product",
+    source=csv_contents,
+    config=graph_config,
+)
+
+result = multi_csv_graph.run()
+print(result)
+```
+
+## Advanced: Schema with Documents
+
+```python
+from typing import List
+from pydantic import BaseModel, Field
+from scrapegraphai.graphs import DocumentScraperGraph
+
+class Character(BaseModel):
+    name: str = Field(description="Character name")
+    role: str = Field(description="Role in the story")
+
+class BookSummary(BaseModel):
+    title: str = Field(description="Book title")
+    summary: str = Field(description="Brief summary")
+    characters: List[Character]
+    themes: List[str]
+
+document_graph = DocumentScraperGraph(
+    prompt="Analyze this literary text",
+    source=document_text,
+    schema=BookSummary,
+    config=graph_config,
+)
+
+result = document_graph.run()
+```
+
+This ensures the output matches your desired structure with type validation.
+
+## Tips for Document Processing
+
+<Note>
+**Large files**: For very large documents, consider chunking or summarizing first to reduce token usage.
+</Note>
+
+<Note>
+**File encoding**: Ensure your files are UTF-8 encoded to avoid parsing issues.
+</Note>
+
+<Note>
+**Clear prompts**: Be specific about what data to extract, especially with complex documents.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Schemas" icon="diagram-project" href="/examples/custom-schemas">
+    Structure your document extraction results
+  </Card>
+  
+  <Card title="Search Integration" icon="magnifying-glass" href="/examples/search-integration">
+    Combine search with document processing
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+**Issue**: CSV parsing errors
+- Ensure the CSV is properly formatted
+- Check for unusual delimiters or encodings
+- Try reading the file with explicit encoding: `open(file, "r", encoding="utf-8")`
+
+**Issue**: Incomplete extraction
+- Make your prompt more specific
+- For large documents, break into smaller chunks
+- Verify the document content is readable
+
+**Issue**: Performance with large files
+- Use more efficient models for simple tasks
+- Consider preprocessing to extract relevant sections
+- Use streaming for very large files

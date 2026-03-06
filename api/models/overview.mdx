@@ -1,0 +1,200 @@
+---
+title: 'Models Overview'
+description: 'Custom model classes that extend ScrapeGraphAI with specialized capabilities'
+---
+
+## Introduction
+
+ScrapeGraphAI provides custom model classes that wrap various AI services and extend functionality for specific use cases. These models integrate seamlessly with the graph-based scraping pipeline, enabling advanced features like image-to-text conversion, text-to-speech generation, and support for multiple LLM providers.
+
+## Available Models
+
+### LLM Providers
+
+ScrapeGraphAI includes wrapper classes for several LLM providers that use OpenAI-compatible APIs:
+
+- **[DeepSeek](/api/models/deepseek)** - DeepSeek language models with OpenAI-compatible API
+- **[XAI](/api/models/xai)** - xAI Grok models with OpenAI-compatible API  
+- **[Nvidia](/api/models/nvidia)** - NVIDIA AI Foundation models
+- **OneApi** - Generic OpenAI-compatible API wrapper
+- **CLoD** - CLōD language models with OpenAI-compatible API
+
+### Specialized Models
+
+- **[OpenAIImageToText](/api/models/openai#openaiimagetotext)** - Convert images to text descriptions using OpenAI vision models
+- **[OpenAITextToSpeech](/api/models/openai#openaitexttospeech)** - Generate speech audio from text using OpenAI TTS models
+
+## Model Integration
+
+All custom models integrate with ScrapeGraphAI's graph-based architecture. Models are configured through the graph's `config` dictionary and can be used in nodes throughout the scraping pipeline.
+
+### Basic Usage Pattern
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+from scrapegraphai.models import DeepSeek
+
+# Configure the model
+graph_config = {
+    "llm": {
+        "model": "deepseek-chat",
+        "api_key": "your-api-key",
+        "temperature": 0.7
+    }
+}
+
+# Use in a graph
+scraper = SmartScraperGraph(
+    prompt="Extract the main content",
+    source="https://example.com",
+    config=graph_config
+)
+```
+
+### Direct Model Usage
+
+You can also instantiate and use models directly:
+
+```python
+from scrapegraphai.models import DeepSeek, OpenAIImageToText
+
+# LLM model
+llm = DeepSeek(
+    model="deepseek-chat",
+    api_key="your-api-key",
+    temperature=0.7
+)
+
+# Image-to-text model
+itt_model = OpenAIImageToText({
+    "model": "gpt-4-vision-preview",
+    "api_key": "your-openai-key"
+})
+
+image_description = itt_model.run("https://example.com/image.jpg")
+```
+
+## Configuration
+
+### LLM Configuration
+
+LLM wrapper models (DeepSeek, XAI, Nvidia, etc.) accept standard LangChain ChatOpenAI parameters:
+
+<ParamField path="model" type="string" required>
+  The model identifier to use (e.g., "deepseek-chat", "grok-beta")
+</ParamField>
+
+<ParamField path="api_key" type="string" required>
+  API key for authentication (automatically mapped to provider-specific key)
+</ParamField>
+
+<ParamField path="temperature" type="float" default="0.7">
+  Controls randomness in model outputs (0.0 to 1.0)
+</ParamField>
+
+<ParamField path="max_tokens" type="int">
+  Maximum number of tokens to generate in responses
+</ParamField>
+
+<ParamField path="streaming" type="bool" default="false">
+  Enable streaming responses
+</ParamField>
+
+### Specialized Model Configuration
+
+Specialized models like OpenAIImageToText and OpenAITextToSpeech have their own configuration requirements. See individual model pages for details.
+
+## Architecture
+
+### Wrapper Pattern
+
+Most LLM models use a wrapper pattern that:
+
+1. Extends LangChain's `ChatOpenAI` class
+2. Automatically maps `api_key` to provider-specific parameter names
+3. Sets provider-specific base URLs
+4. Inherits all LangChain functionality
+
+This design allows seamless integration with LangChain's ecosystem while providing provider-specific configurations.
+
+### Lazy Loading
+
+Some models (like Nvidia) use lazy loading to avoid import errors when optional dependencies aren't installed:
+
+```python
+class Nvidia:
+    def __new__(cls, **llm_config):
+        try:
+            from langchain_nvidia_ai_endpoints import ChatNVIDIA
+        except ImportError:
+            raise ImportError("Please install langchain-nvidia-ai-endpoints")
+        return ChatNVIDIA(**llm_config)
+```
+
+## Graph Integration Examples
+
+### Image-to-Text in OmniScraperGraph
+
+```python
+from scrapegraphai.graphs import OmniScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "gpt-4-vision-preview",
+        "api_key": "your-openai-key"
+    },
+    "max_images": 5
+}
+
+omni_scraper = OmniScraperGraph(
+    prompt="Describe all product images on this page",
+    source="https://example.com/products",
+    config=graph_config
+)
+
+result = omni_scraper.run()
+```
+
+### Text-to-Speech in SpeechGraph
+
+```python
+from scrapegraphai.graphs import SpeechGraph
+
+graph_config = {
+    "llm": {
+        "model": "gpt-3.5-turbo",
+        "api_key": "your-openai-key"
+    },
+    "tts_model": {
+        "api_key": "your-openai-key",
+        "model": "tts-1",
+        "voice": "alloy"
+    },
+    "output_path": "summary.mp3"
+}
+
+speech_graph = SpeechGraph(
+    prompt="Summarize the main attractions",
+    source="https://en.wikipedia.org/wiki/Chioggia",
+    config=graph_config
+)
+
+speech_graph.run()
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="OpenAI Models" icon="image" href="/api/models/openai">
+    Image-to-text and text-to-speech models
+  </Card>
+  <Card title="DeepSeek" icon="brain" href="/api/models/deepseek">
+    DeepSeek language models integration
+  </Card>
+  <Card title="NVIDIA" icon="microchip" href="/api/models/nvidia">
+    NVIDIA AI Foundation models
+  </Card>
+  <Card title="xAI" icon="robot" href="/api/models/xai">
+    xAI Grok models integration
+  </Card>
+</CardGroup>

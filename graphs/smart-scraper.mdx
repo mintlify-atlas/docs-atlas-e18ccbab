@@ -1,0 +1,233 @@
+---
+title: 'SmartScraperGraph'
+description: 'Extract structured data from web pages using natural language prompts'
+icon: 'brain'
+---
+
+## Overview
+
+SmartScraperGraph is the most popular and versatile graph in ScrapeGraphAI. It automates the process of extracting information from web pages using a natural language model to interpret and answer prompts.
+
+## Features
+
+- Extract structured data from any web page using natural language prompts
+- Automatic HTML parsing and content chunking
+- Support for both URLs and local HTML files
+- Schema-based output for type-safe data extraction
+- Configurable reasoning and reattempt modes for improved accuracy
+
+## Parameters
+
+The SmartScraperGraph constructor accepts the following parameters:
+
+```python
+SmartScraperGraph(
+    prompt: str,              # Natural language description of what to extract
+    source: str,              # URL or path to local HTML file
+    config: dict,             # Configuration dictionary
+    schema: Optional[BaseModel] = None  # Pydantic schema for structured output
+)
+```
+
+### Configuration Options
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `llm` | dict | Required | LLM model configuration |
+| `verbose` | bool | `False` | Enable detailed logging |
+| `headless` | bool | `True` | Run browser in headless mode |
+| `html_mode` | bool | `False` | Skip HTML parsing for faster execution |
+| `reasoning` | bool | `False` | Enable reasoning step before extraction |
+| `reattempt` | bool | `False` | Retry if extraction fails |
+| `force` | bool | `False` | Force fetch even with cache |
+| `cut` | bool | `True` | Cut content to model token limit |
+
+## Usage Examples
+
+<Tabs>
+  <Tab title="OpenAI">
+    ```python
+    import os
+    from dotenv import load_dotenv
+    from scrapegraphai.graphs import SmartScraperGraph
+
+    load_dotenv()
+
+    # Define the configuration
+    graph_config = {
+        "llm": {
+            "api_key": os.getenv("OPENAI_API_KEY"),
+            "model": "openai/gpt-4o-mini",
+        },
+        "verbose": True,
+        "headless": False,
+    }
+
+    # Create the SmartScraperGraph instance
+    smart_scraper_graph = SmartScraperGraph(
+        prompt="Extract me the first article",
+        source="https://www.wired.com",
+        config=graph_config,
+    )
+
+    # Run the graph
+    result = smart_scraper_graph.run()
+    print(result)
+    ```
+  </Tab>
+  <Tab title="Ollama">
+    ```python
+    from scrapegraphai.graphs import SmartScraperGraph
+    from scrapegraphai.utils import prettify_exec_info
+
+    # Define the configuration for local Ollama
+    graph_config = {
+        "llm": {
+            "model": "ollama/llama3.2",
+            "temperature": 0,
+            "base_url": "http://localhost:11434",
+            "model_tokens": 4096,
+        },
+        "verbose": True,
+        "headless": False,
+    }
+
+    # Create the SmartScraperGraph instance
+    smart_scraper_graph = SmartScraperGraph(
+        prompt="Find some information about the founders.",
+        source="https://scrapegraphai.com/",
+        config=graph_config,
+    )
+
+    # Run the graph
+    result = smart_scraper_graph.run()
+    print(result)
+
+    # Get execution info
+    graph_exec_info = smart_scraper_graph.get_execution_info()
+    print(prettify_exec_info(graph_exec_info))
+    ```
+  </Tab>
+</Tabs>
+
+## Schema-Based Extraction
+
+Use Pydantic schemas to ensure type-safe, structured output:
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class Article(BaseModel):
+    title: str = Field(description="Article title")
+    author: str = Field(description="Author name")
+    publish_date: str = Field(description="Publication date")
+    summary: str = Field(description="Brief summary")
+
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o-mini",
+        "api_key": os.getenv("OPENAI_API_KEY"),
+    },
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract the main article information",
+    source="https://www.example.com/article",
+    config=graph_config,
+    schema=Article
+)
+
+result = scraper.run()
+```
+
+## Advanced Configuration
+
+### HTML Mode
+
+Skip HTML parsing for faster execution when dealing with simple pages:
+
+```python
+graph_config = {
+    "llm": {"model": "openai/gpt-4o-mini"},
+    "html_mode": True,  # Skip parsing, work directly with HTML
+}
+```
+
+### Reasoning Mode
+
+Enable reasoning for complex extraction tasks:
+
+```python
+graph_config = {
+    "llm": {"model": "openai/gpt-4o-mini"},
+    "reasoning": True,  # Add reasoning step before extraction
+}
+```
+
+### Reattempt Mode
+
+Automatically retry failed extractions:
+
+```python
+graph_config = {
+    "llm": {"model": "openai/gpt-4o-mini"},
+    "reattempt": True,  # Retry if extraction returns empty results
+}
+```
+
+## Local HTML Files
+
+You can scrape local HTML files instead of URLs:
+
+```python
+scraper = SmartScraperGraph(
+    prompt="Extract all product information",
+    source="/path/to/local/file.html",  # Local file path
+    config=graph_config,
+)
+
+result = scraper.run()
+```
+
+## Output Format
+
+The `run()` method returns extracted data based on your prompt:
+
+```python
+result = scraper.run()
+# Returns: Dictionary or schema-validated object with extracted data
+```
+
+## Error Handling
+
+```python
+try:
+    result = smart_scraper_graph.run()
+    if result:
+        print("Extraction successful:", result)
+    else:
+        print("No data extracted")
+except Exception as e:
+    print(f"Error during scraping: {e}")
+```
+
+## Performance Tips
+
+<Note>
+  - Use `html_mode=True` for simple pages to skip parsing overhead
+  - Set `headless=True` in production for better performance
+  - Use `cut=True` to prevent token limit errors with large pages
+  - Enable `verbose=True` during development to debug issues
+</Note>
+
+## Related Graphs
+
+<CardGroup cols={2}>
+  <Card title="SmartScraperMultiGraph" icon="layer-group" href="/graphs/multi-scraper">
+    Scrape multiple URLs at once
+  </Card>
+  <Card title="SearchGraph" icon="magnifying-glass" href="/graphs/search-graph">
+    Search and scrape results
+  </Card>
+</CardGroup>

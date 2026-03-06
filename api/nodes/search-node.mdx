@@ -1,0 +1,498 @@
+---
+title: "SearchInternetNode"
+description: "Generate search queries and find relevant information on the internet"
+---
+
+## Overview
+
+The `SearchInternetNode` generates search queries based on user input and searches the internet for relevant information. It uses an LLM to create optimized search queries, then retrieves results from configured search engines.
+
+## Class Signature
+
+```python
+class SearchInternetNode(BaseNode):
+    def __init__(
+        self,
+        input: str,
+        output: List[str],
+        node_config: Optional[dict] = None,
+        node_name: str = "SearchInternet",
+    )
+```
+
+Source: `scrapegraphai/nodes/search_internet_node.py:16`
+
+## Parameters
+
+<ParamField path="input" type="str" required>
+  Boolean expression defining the input keys needed from the state. Typically `"user_prompt"`
+</ParamField>
+
+<ParamField path="output" type="List[str]" required>
+  List of output keys to be updated in the state. Typically `["search_results"]` or `["urls"]`
+</ParamField>
+
+<ParamField path="node_config" type="dict" required>
+  Configuration dictionary with the following options:
+
+  <Expandable title="Configuration Options">
+    <ParamField path="llm_model" type="object" required>
+      Language model instance for generating search queries (ChatOpenAI, ChatOllama, etc.)
+    </ParamField>
+
+    <ParamField path="search_engine" type="str" default="duckduckgo">
+      Search engine to use. Options: `"duckduckgo"`, `"google"`, `"bing"`, `"serper"`
+    </ParamField>
+
+    <ParamField path="max_results" type="int" default="3">
+      Maximum number of search results to return
+    </ParamField>
+
+    <ParamField path="serper_api_key" type="str" default="None">
+      API key for Serper search engine (required if using `search_engine="serper"`)
+    </ParamField>
+
+    <ParamField path="verbose" type="bool" default="False">
+      Whether to show print statements during execution
+    </ParamField>
+
+    <ParamField path="loader_kwargs" type="dict" default="{}">
+      Additional loader configuration, including proxy settings:
+      ```python
+      {"proxy": "http://proxy.example.com:8080"}
+      ```
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="node_name" type="str" default="SearchInternet">
+  The unique identifier name for the node
+</ParamField>
+
+## State Keys
+
+### Input State
+
+<ParamField path="user_prompt" type="str">
+  The user's query or question that needs internet search
+</ParamField>
+
+### Output State
+
+<ParamField path="search_results" type="List[Dict]">
+  List of search results, each containing:
+  - `title`: Page title
+  - `url`: Page URL
+  - `snippet`: Page description/snippet
+  - `content`: Full page content (if fetched)
+</ParamField>
+
+## Methods
+
+### execute(state: dict) -> dict
+
+Generates a search query from user input and searches the internet for relevant information.
+
+```python
+def execute(self, state: dict) -> dict:
+    """
+    Generates an answer by constructing a prompt from the user's input and the scraped
+    content, querying the language model, and parsing its response.
+    
+    Args:
+        state (dict): The current state of the graph.
+    
+    Returns:
+        dict: The updated state with search results.
+    
+    Raises:
+        ValueError: If zero results found for the search query.
+    """
+```
+
+Source: `scrapegraphai/nodes/search_internet_node.py:60`
+
+**Processing Steps:**
+1. Extract user prompt from state
+2. Generate optimized search query using LLM
+3. Execute search on configured search engine
+4. Return search results in state
+
+**Returns:** Updated state dictionary with search results
+
+## Usage Examples
+
+### Basic Internet Search
+
+```python
+from scrapegraphai.nodes import SearchInternetNode
+from langchain_openai import ChatOpenAI
+
+# Create search node
+search_node = SearchInternetNode(
+    input="user_prompt",
+    output=["search_results"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "search_engine": "duckduckgo",
+        "max_results": 5,
+        "verbose": True
+    }
+)
+
+# Execute node
+state = {
+    "user_prompt": "What are the latest developments in quantum computing?"
+}
+updated_state = search_node.execute(state)
+
+print("Search results:", updated_state["search_results"])
+# Output: [{"title": "...", "url": "...", "snippet": "..."}, ...]
+```
+
+### Using Google Search
+
+```python
+search_node = SearchInternetNode(
+    input="user_prompt",
+    output=["search_results"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "search_engine": "google",
+        "max_results": 10,
+        "verbose": False
+    }
+)
+
+state = {
+    "user_prompt": "Best practices for Python web scraping"
+}
+updated_state = search_node.execute(state)
+```
+
+### Using Serper API
+
+```python
+search_node = SearchInternetNode(
+    input="user_prompt",
+    output=["search_results"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "search_engine": "serper",
+        "serper_api_key": "your_serper_api_key_here",
+        "max_results": 5,
+        "verbose": True
+    }
+)
+
+state = {
+    "user_prompt": "Latest AI research papers 2024"
+}
+updated_state = search_node.execute(state)
+```
+
+### Search with Proxy
+
+```python
+search_node = SearchInternetNode(
+    input="user_prompt",
+    output=["search_results"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "search_engine": "duckduckgo",
+        "max_results": 3,
+        "loader_kwargs": {
+            "proxy": "http://proxy.example.com:8080"
+        }
+    }
+)
+
+state = {
+    "user_prompt": "Current weather in Tokyo"
+}
+updated_state = search_node.execute(state)
+```
+
+### Using Ollama for Query Generation
+
+```python
+from langchain_community.chat_models import ChatOllama
+
+search_node = SearchInternetNode(
+    input="user_prompt",
+    output=["search_results"],
+    node_config={
+        "llm_model": ChatOllama(model="llama3"),
+        "search_engine": "duckduckgo",
+        "max_results": 5
+    }
+)
+
+state = {
+    "user_prompt": "Explain machine learning algorithms"
+}
+updated_state = search_node.execute(state)
+```
+
+### Multiple Search Results
+
+```python
+search_node = SearchInternetNode(
+    input="user_prompt",
+    output=["search_results"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "search_engine": "duckduckgo",
+        "max_results": 20,  # Get more results
+        "verbose": True
+    }
+)
+
+state = {
+    "user_prompt": "Top Python frameworks for 2024"
+}
+updated_state = search_node.execute(state)
+
+# Process results
+for i, result in enumerate(updated_state["search_results"], 1):
+    print(f"{i}. {result['title']}")
+    print(f"   URL: {result['url']}")
+    print(f"   Snippet: {result['snippet'][:100]}...\n")
+```
+
+## Search Query Generation
+
+The node uses an LLM to transform user prompts into optimized search queries:
+
+### Query Optimization Process
+
+1. **User Prompt Analysis**: LLM analyzes the user's question
+2. **Keyword Extraction**: Identifies key terms and concepts
+3. **Query Formulation**: Creates optimized search query
+4. **Result Parsing**: Returns comma-separated search terms
+
+### Example Transformations
+
+| User Prompt | Generated Search Query |
+|------------|------------------------|
+| "What's the weather like?" | `"current weather forecast"` |
+| "I need Python tutorials" | `"Python programming tutorials beginner"` |
+| "Latest news about AI" | `"artificial intelligence news 2024"` |
+| "How to bake bread?" | `"bread baking recipe instructions"` |
+
+## Supported Search Engines
+
+### DuckDuckGo (Default)
+
+```python
+{
+    "search_engine": "duckduckgo",
+    # No API key required
+    # Privacy-focused
+    # Rate-limited
+}
+```
+
+**Pros:**
+- No API key required
+- Privacy-focused
+- Simple to use
+
+**Cons:**
+- Rate limiting
+- Fewer results
+- No advanced features
+
+### Google Search
+
+```python
+{
+    "search_engine": "google",
+    # Requires Google Custom Search API
+    # Best quality results
+}
+```
+
+**Pros:**
+- High-quality results
+- Comprehensive coverage
+- Advanced ranking
+
+**Cons:**
+- Requires API key
+- API usage costs
+- Complex setup
+
+### Bing Search
+
+```python
+{
+    "search_engine": "bing",
+    # Requires Bing Search API key
+    # Good international coverage
+}
+```
+
+**Pros:**
+- Good result quality
+- International support
+- Reasonable pricing
+
+**Cons:**
+- Requires API key
+- API usage costs
+
+### Serper
+
+```python
+{
+    "search_engine": "serper",
+    "serper_api_key": "your_key",
+    # Developer-friendly API
+    # Good performance
+}
+```
+
+**Pros:**
+- Easy API integration
+- Fast responses
+- Good documentation
+
+**Cons:**
+- Requires subscription
+- Monthly usage limits
+
+## Search Result Structure
+
+Each search result contains:
+
+```python
+{
+    "title": "Page Title",
+    "url": "https://example.com/page",
+    "snippet": "Brief description of the page content...",
+    "content": "Full page text content (if fetched)",
+    "position": 1,  # Result ranking
+    "metadata": {   # Additional metadata
+        "domain": "example.com",
+        "date": "2024-01-15",
+        # Other engine-specific fields
+    }
+}
+```
+
+## Error Handling
+
+### Zero Results Error
+
+```python
+# Raises ValueError: "Zero results found for the search query."
+```
+
+This occurs when:
+- Search query is too specific
+- Search engine rate limits exceeded
+- Network connectivity issues
+- Invalid API credentials
+
+### Handling Errors Gracefully
+
+```python
+try:
+    updated_state = search_node.execute(state)
+except ValueError as e:
+    if "Zero results" in str(e):
+        # Handle no results case
+        print("No results found. Try a different query.")
+    else:
+        raise
+```
+
+## Best Practices
+
+1. **Choose appropriate search engine**
+   - Use DuckDuckGo for simple, no-auth searches
+   - Use Serper for production applications
+   - Use Google for highest quality results
+
+2. **Optimize max_results**
+   - Start with 3-5 results for speed
+   - Increase to 10-20 for comprehensive coverage
+   - Consider API costs and rate limits
+
+3. **Use descriptive user prompts**
+   - Clear prompts generate better search queries
+   - Include specific keywords and context
+
+4. **Handle rate limits**
+   - Implement retry logic
+   - Use proxies if needed
+   - Cache results when possible
+
+5. **Configure timeouts**
+   - Set appropriate timeouts for search operations
+   - Handle timeout errors gracefully
+
+6. **Enable verbose mode for debugging**
+   - Monitor query generation
+   - Track search engine responses
+
+## Integration Patterns
+
+### Search + Fetch + Generate
+
+```python
+# 1. Search for relevant URLs
+search_node = SearchInternetNode(
+    input="user_prompt",
+    output=["search_results"],
+    node_config={...}
+)
+
+# 2. Fetch content from top result
+fetch_node = FetchNode(
+    input="url",
+    output=["document"],
+    node_config={...}
+)
+
+# 3. Generate answer from fetched content
+generate_node = GenerateAnswerNode(
+    input="user_prompt & document",
+    output=["answer"],
+    node_config={...}
+)
+```
+
+### Multi-Source Search
+
+```python
+# Search multiple engines in parallel
+search_ddg = SearchInternetNode(
+    input="user_prompt",
+    output=["ddg_results"],
+    node_config={"search_engine": "duckduckgo", ...}
+)
+
+search_serper = SearchInternetNode(
+    input="user_prompt",
+    output=["serper_results"],
+    node_config={"search_engine": "serper", ...}
+)
+
+# Merge results from both sources
+```
+
+## Performance Considerations
+
+- **Query generation**: ~1-2 seconds with GPT-4
+- **Search execution**: ~1-3 seconds depending on engine
+- **Total latency**: ~2-5 seconds per search
+- **Rate limits**: Vary by search engine
+- **API costs**: Consider usage-based pricing
+
+## Related Nodes
+
+- [FetchNode](/api/nodes/fetch-node) - Fetch content from search result URLs
+- [GenerateAnswerNode](/api/nodes/generate-answer-node) - Generate answers from search results
+- [ConditionalNode](/api/nodes/conditional-node) - Branch based on search results availability

@@ -1,0 +1,407 @@
+---
+title: Search Integration
+description: Combine web search with intelligent scraping using SearchGraph
+icon: magnifying-glass
+---
+
+The `SearchGraph` combines search engine capabilities with ScrapeGraphAI's extraction power. It automatically searches the web, finds relevant pages, and extracts structured data.
+
+## Overview
+
+This example demonstrates how to:
+- Perform web searches and extract results
+- Combine search with intelligent data extraction
+- Use schemas for structured search results
+- Configure search parameters
+
+## Basic Search Example
+
+Search the web and extract structured information:
+
+```python
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SearchGraph
+
+load_dotenv()
+
+# Define the configuration for the graph
+openai_key = os.getenv("OPENAI_API_KEY")
+
+graph_config = {
+    "llm": {
+        "api_key": openai_key,
+        "model": "openai/gpt-4o",
+    },
+    "max_results": 2,
+    "verbose": True,
+}
+
+# Create the SearchGraph instance and run it
+search_graph = SearchGraph(
+    prompt="List me Chioggia's famous dishes",
+    config=graph_config
+)
+
+result = search_graph.run()
+print(result)
+```
+
+## Search with Custom Schema
+
+Define a schema to get structured, validated results:
+
+```python
+import os
+from typing import List
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field
+from scrapegraphai.graphs import SearchGraph
+from scrapegraphai.utils import convert_to_csv, convert_to_json, prettify_exec_info
+
+load_dotenv()
+
+# Define the output schema for the graph
+class Dish(BaseModel):
+    name: str = Field(description="The name of the dish")
+    description: str = Field(description="The description of the dish")
+
+class Dishes(BaseModel):
+    dishes: List[Dish]
+
+# Define the configuration for the graph
+openai_key = os.getenv("OPENAI_APIKEY")
+
+graph_config = {
+    "llm": {
+        "api_key": openai_key,
+        "model": "openai/gpt-4o"
+    },
+    "max_results": 2,
+    "verbose": True,
+}
+
+# Create the SearchGraph instance and run it
+search_graph = SearchGraph(
+    prompt="List me Chioggia's famous dishes",
+    config=graph_config,
+    schema=Dishes
+)
+
+result = search_graph.run()
+print(result)
+
+# Get graph execution info
+graph_exec_info = search_graph.get_execution_info()
+print(prettify_exec_info(graph_exec_info))
+
+# Save to json and csv
+convert_to_csv(result, "result")
+convert_to_json(result, "result")
+```
+
+## Step-by-Step Breakdown
+
+<Steps>
+  <Step title="Import dependencies">
+    ```python
+    import os
+    from typing import List
+    from dotenv import load_dotenv
+    from pydantic import BaseModel, Field
+    from scrapegraphai.graphs import SearchGraph
+    
+    load_dotenv()
+    ```
+    
+    Import SearchGraph and Pydantic for schema definition.
+  </Step>
+  
+  <Step title="Define your schema">
+    ```python
+    class Dish(BaseModel):
+        name: str = Field(description="The name of the dish")
+        description: str = Field(description="The description of the dish")
+    
+    class Dishes(BaseModel):
+        dishes: List[Dish]
+    ```
+    
+    Create Pydantic models to structure the search results.
+  </Step>
+  
+  <Step title="Configure search parameters">
+    ```python
+    graph_config = {
+        "llm": {
+            "api_key": openai_key,
+            "model": "openai/gpt-4o"
+        },
+        "max_results": 2,  # Number of search results to process
+        "verbose": True,
+    }
+    ```
+    
+    Set `max_results` to control how many search results to scrape.
+  </Step>
+  
+  <Step title="Create and run search graph">
+    ```python
+    search_graph = SearchGraph(
+        prompt="List me Chioggia's famous dishes",
+        config=graph_config,
+        schema=Dishes
+    )
+    
+    result = search_graph.run()
+    ```
+    
+    The graph automatically searches, finds relevant pages, and extracts data.
+  </Step>
+</Steps>
+
+## How SearchGraph Works
+
+<Steps>
+  <Step title="Execute search">
+    Uses a search engine (like Google) to find relevant web pages based on your prompt
+  </Step>
+  
+  <Step title="Select results">
+    Retrieves the top N results (configured by `max_results`)
+  </Step>
+  
+  <Step title="Scrape pages">
+    Visits each search result and extracts the page content
+  </Step>
+  
+  <Step title="Extract data">
+    Uses AI to extract information matching your prompt and schema from all pages
+  </Step>
+  
+  <Step title="Aggregate results">
+    Combines data from multiple sources into a single structured response
+  </Step>
+</Steps>
+
+## Configuration Options
+
+<Tabs>
+  <Tab title="Basic Search">
+    ```python
+    graph_config = {
+        "llm": {
+            "api_key": os.getenv("OPENAI_API_KEY"),
+            "model": "openai/gpt-4o",
+        },
+        "max_results": 3,  # Number of pages to scrape
+        "verbose": True,
+    }
+    ```
+  </Tab>
+  
+  <Tab title="With Search Engine">
+    ```python
+    graph_config = {
+        "llm": {
+            "api_key": os.getenv("OPENAI_API_KEY"),
+            "model": "openai/gpt-4o",
+        },
+        "max_results": 5,
+        "search_engine": "google",  # or "bing", "duckduckgo"
+        "verbose": True,
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Advanced">
+    ```python
+    graph_config = {
+        "llm": {
+            "api_key": os.getenv("OPENAI_API_KEY"),
+            "model": "openai/gpt-4o",
+        },
+        "max_results": 5,
+        "search_engine": "google",
+        "timeout": 30,  # Timeout for each page
+        "headless": True,
+        "verbose": True,
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Expected Output
+
+With the schema defined above:
+
+```json
+{
+    "dishes": [
+        {
+            "name": "Sarde in Saor",
+            "description": "Traditional Venetian sweet and sour sardines with onions, pine nuts, and raisins"
+        },
+        {
+            "name": "Risotto di Gò",
+            "description": "Creamy risotto made with gò, a local lagoon fish"
+        },
+        {
+            "name": "Moleche",
+            "description": "Soft-shell crabs, a seasonal delicacy from the Venice lagoon"
+        }
+    ]
+}
+```
+
+## Search Link Graph
+
+For more control over which links to scrape:
+
+```python
+from scrapegraphai.graphs import SearchLinkGraph
+
+search_link_graph = SearchLinkGraph(
+    prompt="List me the best AI tools",
+    config=graph_config,
+)
+
+# Returns URLs first
+links = search_link_graph.run()
+print("Found links:", links)
+
+# Then you can scrape specific links
+from scrapegraphai.graphs import SmartScraperMultiGraph
+
+scraper = SmartScraperMultiGraph(
+    prompt="Extract tool name, description, and pricing",
+    source=links[:3],  # Scrape top 3 results
+    config=graph_config,
+)
+
+result = scraper.run()
+```
+
+## Common Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Research" icon="book">
+    Gather information on topics from multiple sources automatically
+  </Card>
+  
+  <Card title="Market Analysis" icon="chart-mixed">
+    Research competitors, pricing, and market trends
+  </Card>
+  
+  <Card title="News Aggregation" icon="newspaper">
+    Collect and structure news articles on specific topics
+  </Card>
+  
+  <Card title="Product Discovery" icon="cart-shopping">
+    Find and compare products across different websites
+  </Card>
+</CardGroup>
+
+## Advanced Example: Depth Search
+
+Search and follow links recursively:
+
+```python
+from scrapegraphai.graphs import DepthSearchGraph
+
+depth_graph = DepthSearchGraph(
+    prompt="Find information about Python web scraping libraries",
+    config={
+        "llm": {
+            "api_key": os.getenv("OPENAI_API_KEY"),
+            "model": "openai/gpt-4o",
+        },
+        "max_results": 3,
+        "max_depth": 2,  # Follow links up to 2 levels deep
+        "verbose": True,
+    }
+)
+
+result = depth_graph.run()
+```
+
+This explores links within the initial search results for more comprehensive data.
+
+## Export Results
+
+Save your search results in different formats:
+
+```python
+from scrapegraphai.utils import convert_to_csv, convert_to_json
+
+# Run the search
+result = search_graph.run()
+
+# Export to different formats
+convert_to_csv(result, "dishes_output")  # Creates dishes_output.csv
+convert_to_json(result, "dishes_output")  # Creates dishes_output.json
+
+# Pretty print execution info
+from scrapegraphai.utils import prettify_exec_info
+
+exec_info = search_graph.get_execution_info()
+print(prettify_exec_info(exec_info))
+```
+
+## Performance Tips
+
+<Note>
+**Limit search results**: Start with `max_results: 2-3` for faster execution and lower token usage.
+</Note>
+
+<Note>
+**Use specific prompts**: More specific search queries lead to more relevant results and better extraction.
+</Note>
+
+<Note>
+**Enable caching**: Set up caching to avoid re-scraping the same pages during development.
+</Note>
+
+## Comparison with Basic Scraping
+
+| Feature | SmartScraperGraph | SearchGraph |
+|---------|------------------|-------------|
+| **Input** | Specific URLs | Natural language query |
+| **Search** | No | Yes, automatic |
+| **Use Case** | Known websites | Discovery and research |
+| **Speed** | Faster | Slower (search + scrape) |
+| **Results** | Single/few sources | Multiple sources |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Schemas" icon="diagram-project" href="/examples/custom-schemas">
+    Learn to structure search results with schemas
+  </Card>
+  
+  <Card title="Multi-Page Scraping" icon="layer-group" href="/examples/multi-page">
+    Scrape specific URLs after searching
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+**Issue**: No results returned
+- Make your search query more specific
+- Increase `max_results` to search more pages
+- Check if search engine is accessible
+
+**Issue**: Irrelevant results
+- Refine your prompt to be more specific
+- Use a schema to filter unwanted data
+- Adjust search parameters
+
+**Issue**: Slow performance
+- Reduce `max_results`
+- Enable `headless: True` mode
+- Use a faster model for extraction
+
+**Issue**: Rate limiting
+- Add delays between requests
+- Reduce the number of results
+- Use a different search engine

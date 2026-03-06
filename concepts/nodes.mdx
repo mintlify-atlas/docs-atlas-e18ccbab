@@ -1,0 +1,530 @@
+---
+title: Nodes
+description: Understanding the node system in ScrapeGraphAI
+---
+
+# Nodes
+
+Nodes are the fundamental processing units in ScrapeGraphAI. Each node performs a specific task (fetching, parsing, generating, etc.) and updates the graph state with its results.
+
+## Overview
+
+A node in ScrapeGraphAI:
+- **Receives input** from the graph state
+- **Processes data** according to its specific logic
+- **Updates state** with output results
+- **Passes control** to the next node via edges
+
+<Info>
+All nodes inherit from `BaseNode` and must implement the `execute()` method.
+</Info>
+
+## BaseNode
+
+The `BaseNode` class is the abstract foundation for all nodes in ScrapeGraphAI.
+
+### Core Attributes
+
+```python
+class BaseNode:
+    node_name: str          # Unique identifier for the node
+    node_type: str          # Either "node" or "conditional_node"
+    input: str              # Boolean expression defining input keys
+    output: List[str]       # List of output keys to update in state
+    min_input_len: int      # Minimum required input keys (default: 1)
+    node_config: dict       # Additional configuration
+    logger: Logger          # Logging instance
+```
+
+### Creating a Custom Node
+
+Extend `BaseNode` to create custom processing logic:
+
+```python
+from scrapegraphai.nodes import BaseNode
+from typing import List, Optional
+
+class MyCustomNode(BaseNode):
+    """
+    Custom node that processes data in a specific way.
+    """
+    
+    def __init__(
+        self,
+        input: str,
+        output: List[str],
+        node_config: Optional[dict] = None,
+        node_name: str = "MyCustomNode"
+    ):
+        super().__init__(node_name, "node", input, output, 1, node_config)
+        
+        # Initialize node-specific attributes from config
+        self.llm_model = node_config.get("llm_model") if node_config else None
+        self.verbose = node_config.get("verbose", False) if node_config else False
+    
+    def execute(self, state: dict) -> dict:
+        """
+        Execute the node's logic.
+        
+        Args:
+            state: Current graph state
+            
+        Returns:
+            Updated state dictionary
+        """
+        self.logger.info(f"--- Executing {self.node_name} Node ---")
+        
+        # Get input keys based on the input expression
+        input_keys = self.get_input_keys(state)
+        input_data = [state[key] for key in input_keys]
+        
+        # Process the input data
+        result = self.process_data(input_data)
+        
+        # Update state with output
+        state.update({self.output[0]: result})
+        
+        return state
+    
+    def process_data(self, input_data):
+        """Custom processing logic"""
+        # Your custom logic here
+        return processed_data
+```
+
+### Input Expression Syntax
+
+The `input` parameter uses a boolean expression to specify which state keys are required:
+
+<Accordion title="Single Input">
+```python
+input="url"  # Requires 'url' key in state
+```
+</Accordion>
+
+<Accordion title="Multiple Inputs (OR)">
+```python
+input="url | local_dir"  # Requires either 'url' OR 'local_dir'
+```
+</Accordion>
+
+<Accordion title="Multiple Inputs (AND)">
+```python
+input="user_prompt & parsed_doc"  # Requires both keys
+```
+</Accordion>
+
+<Accordion title="Complex Expressions">
+```python
+input="user_prompt & (relevant_chunks | parsed_doc | doc)"
+# Requires 'user_prompt' AND any one of the other three
+```
+</Accordion>
+
+## Built-in Nodes
+
+ScrapeGraphAI provides several pre-built nodes for common tasks.
+
+### FetchNode
+
+Fetches content from URLs or local files.
+
+```python
+from scrapegraphai.nodes import FetchNode
+
+fetch_node = FetchNode(
+    input="url | local_dir",
+    output=["doc"],
+    node_config={
+        "llm_model": llm_model,
+        "headless": True,           # Run browser in headless mode
+        "verbose": False,           # Disable verbose output
+        "timeout": 30,              # Request timeout in seconds
+        "loader_kwargs": {},        # Additional loader arguments
+        "force": False,             # Force markdown conversion
+        "cut": True                 # Enable HTML cleanup
+    }
+)
+```
+
+**Capabilities:**
+- Fetches HTML from URLs using ChromiumLoader
+- Loads local HTML, PDF, CSV, JSON, XML, and Markdown files
+- Automatic markdown conversion for OpenAI models
+- Support for BrowserBase and ScrapeDo services
+- Configurable timeouts and error handling
+
+**State Updates:**
+- Adds `doc` key containing a list of `Document` objects
+
+<Note>
+FetchNode automatically converts HTML to markdown when using OpenAI models for better LLM processing.
+</Note>
+
+### ParseNode
+
+Parses and chunks HTML content for LLM processing.
+
+```python
+from scrapegraphai.nodes import ParseNode
+
+parse_node = ParseNode(
+    input="doc",
+    output=["parsed_doc"],
+    node_config={
+        "llm_model": llm_model,
+        "chunk_size": 8192,         # Maximum chunk size in tokens
+        "parse_html": True,         # Convert HTML to text
+        "parse_urls": False,        # Extract URLs from content
+        "verbose": False
+    }
+)
+```
+
+**Capabilities:**
+- Converts HTML to clean text using Html2TextTransformer
+- Splits content into chunks based on token limits
+- Extracts URLs and image links (optional)
+- Handles both HTML and markdown content
+
+**State Updates:**
+- Adds `parsed_doc` key with list of text chunks
+- Optionally adds `link_urls` and `img_urls` if `parse_urls=True`
+
+### GenerateAnswerNode
+
+Generates answers using LLM based on parsed content and user prompt.
+
+```python
+from scrapegraphai.nodes import GenerateAnswerNode
+
+generate_node = GenerateAnswerNode(
+    input="user_prompt & (relevant_chunks | parsed_doc | doc)",
+    output=["answer"],
+    node_config={
+        "llm_model": llm_model,
+        "schema": MySchema,         # Optional Pydantic schema
+        "additional_info": None,    # Additional context for prompt
+        "verbose": False,
+        "timeout": 480              # LLM request timeout
+    }
+)
+```
+
+**Capabilities:**
+- Processes single or multiple content chunks
+- Parallel processing for multiple chunks using RunnableParallel
+- Merges results from multiple chunks
+- Schema-guided output with Pydantic validation
+- JSON output parsing
+
+**State Updates:**
+- Adds `answer` key with the generated response (dict or schema instance)
+
+**Processing Flow:**
+
+1. **Single Chunk**: Direct LLM generation
+2. **Multiple Chunks**:
+   - Process each chunk in parallel
+   - Merge individual results
+   - Generate final consolidated answer
+
+```python
+# Example with schema
+from pydantic import BaseModel, Field
+from typing import List
+
+class Product(BaseModel):
+    name: str = Field(description="Product name")
+    price: float = Field(description="Product price")
+
+class Products(BaseModel):
+    products: List[Product]
+
+generate_node = GenerateAnswerNode(
+    input="user_prompt & parsed_doc",
+    output=["answer"],
+    node_config={
+        "llm_model": llm_model,
+        "schema": Products
+    }
+)
+```
+
+### ConditionalNode
+
+Enables conditional branching based on runtime evaluation.
+
+```python
+from scrapegraphai.nodes import ConditionalNode
+
+cond_node = ConditionalNode(
+    input="answer",
+    output=["answer"],
+    node_name="CheckValidAnswer",
+    node_config={
+        "key_name": "answer",
+        "condition": 'not answer or answer=="NA"'
+    }
+)
+```
+
+**Configuration:**
+- `key_name`: State key to evaluate
+- `condition`: Python expression that returns True/False
+
+**Graph Requirements:**
+- Must have exactly **two outgoing edges**
+- First edge: Taken when condition is True
+- Second edge: Taken when condition is False (can be None to end)
+
+```python
+from scrapegraphai.graphs import BaseGraph
+
+graph = BaseGraph(
+    nodes=[fetch, parse, generate, cond_node, regenerate],
+    edges=[
+        (fetch, parse),
+        (parse, generate),
+        (generate, cond_node),
+        (cond_node, regenerate),  # True: answer is invalid, regenerate
+        (cond_node, None)         # False: answer is valid, end
+    ],
+    entry_point=fetch
+)
+```
+
+### Other Built-in Nodes
+
+<CardGroup cols={2}>
+  <Card title="RAGNode" icon="database">
+    Performs retrieval-augmented generation using embeddings
+  </Card>
+  <Card title="SearchInternetNode" icon="magnifying-glass">
+    Searches the internet using search engines
+  </Card>
+  <Card title="ImageToTextNode" icon="image">
+    Extracts text from images using OCR
+  </Card>
+  <Card title="DescriptionNode" icon="file-lines">
+    Generates descriptions of extracted data
+  </Card>
+</CardGroup>
+
+## Node Communication
+
+Nodes communicate through the shared **state dictionary**:
+
+```python
+# Node 1: FetchNode adds 'doc' to state
+state = {"url": "https://example.com"}
+state = fetch_node.execute(state)
+# state = {"url": "...", "doc": [Document(...)]}
+
+# Node 2: ParseNode reads 'doc', adds 'parsed_doc'
+state = parse_node.execute(state)
+# state = {"url": "...", "doc": [...], "parsed_doc": ["chunk1", ...]}
+
+# Node 3: GenerateAnswerNode reads 'parsed_doc', adds 'answer'
+state = generate_node.execute(state)
+# state = {..., "answer": {...}}
+```
+
+### Input Key Resolution
+
+The `get_input_keys()` method resolves the input expression:
+
+```python
+node = GenerateAnswerNode(
+    input="user_prompt & (relevant_chunks | parsed_doc | doc)",
+    output=["answer"]
+)
+
+state = {
+    "user_prompt": "Extract products",
+    "parsed_doc": ["chunk1", "chunk2"]
+}
+
+input_keys = node.get_input_keys(state)
+# Returns: ["user_prompt", "parsed_doc"]
+# Selects 'parsed_doc' because it satisfies the OR condition
+```
+
+## Node Configuration
+
+All nodes accept a `node_config` dictionary for customization:
+
+```python
+node_config = {
+    # Model configuration
+    "llm_model": llm_model,          # LLM instance
+    "embedder_model": embedder,      # Embedder for RAG
+    
+    # Behavior settings
+    "verbose": True,                 # Enable logging
+    "headless": True,                # Browser headless mode
+    "timeout": 30,                   # Request timeout
+    
+    # Node-specific settings
+    "chunk_size": 8192,              # For ParseNode
+    "schema": MySchema,              # For GenerateAnswerNode
+    "force": False,                  # Force markdown conversion
+    "parse_html": True,              # Parse HTML to text
+    
+    # Advanced options
+    "loader_kwargs": {},             # Custom loader arguments
+    "additional_info": "context"    # Extra prompt context
+}
+
+node = MyNode(
+    input="doc",
+    output=["result"],
+    node_config=node_config
+)
+```
+
+### Updating Node Configuration
+
+You can update node configuration after creation:
+
+```python
+# Update specific parameters
+node.update_config({
+    "verbose": True,
+    "timeout": 60
+}, overwrite=True)
+
+# Or use set_common_params on AbstractGraph
+graph.set_common_params({
+    "verbose": True,
+    "headless": False
+}, overwrite=True)
+```
+
+## Node Types
+
+ScrapeGraphAI supports two node types:
+
+### Standard Node
+
+```python
+node_type = "node"
+```
+
+- Executes processing logic
+- Has exactly **one outgoing edge**
+- Returns updated state
+
+### Conditional Node
+
+```python
+node_type = "conditional_node"
+```
+
+- Evaluates a condition
+- Has exactly **two outgoing edges**
+- Returns the name of the next node to execute
+
+## Error Handling
+
+Nodes should handle errors gracefully:
+
+```python
+class SafeNode(BaseNode):
+    def execute(self, state: dict) -> dict:
+        try:
+            self.logger.info(f"--- Executing {self.node_name} ---")
+            
+            input_keys = self.get_input_keys(state)
+            input_data = [state[key] for key in input_keys]
+            
+            # Process data
+            result = self.process(input_data)
+            
+            state.update({self.output[0]: result})
+            return state
+            
+        except ValueError as e:
+            self.logger.error(f"Validation error in {self.node_name}: {e}")
+            state.update({self.output[0]: {"error": str(e)}})
+            return state
+            
+        except Exception as e:
+            self.logger.error(f"Error in {self.node_name}: {e}")
+            raise  # Re-raise for graph-level handling
+```
+
+## Best Practices
+
+<Accordion title="Use Descriptive Node Names">
+```python
+# Good
+fetch_product_data = FetchNode(
+    input="url",
+    output=["doc"],
+    node_name="FetchProductData"
+)
+
+# Avoid
+node1 = FetchNode(
+    input="url",
+    output=["doc"]
+)
+```
+</Accordion>
+
+<Accordion title="Keep Nodes Focused">
+Each node should do one thing well. Split complex logic into multiple nodes:
+
+```python
+# Good: Separate concerns
+fetch_node = FetchNode(...)      # Only fetch
+parse_node = ParseNode(...)      # Only parse
+generate_node = GenerateNode(...) # Only generate
+
+# Avoid: Doing too much in one node
+```
+</Accordion>
+
+<Accordion title="Use Type Hints">
+```python
+from typing import List, Optional, Dict
+
+class MyNode(BaseNode):
+    def execute(self, state: Dict[str, any]) -> Dict[str, any]:
+        input_keys: List[str] = self.get_input_keys(state)
+        return state
+```
+</Accordion>
+
+<Accordion title="Log Important Events">
+```python
+def execute(self, state: dict) -> dict:
+    self.logger.info(f"--- Executing {self.node_name} ---")
+    
+    if self.verbose:
+        self.logger.debug(f"Input keys: {self.get_input_keys(state)}")
+    
+    result = self.process(state)
+    
+    self.logger.info(f"Processed {len(result)} items")
+    return state
+```
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Graphs" icon="diagram-project" href="/concepts/graphs">
+    Learn how nodes connect to form graphs
+  </Card>
+  <Card title="Configuration" icon="gear" href="/concepts/configuration">
+    Explore node configuration options
+  </Card>
+  <Card title="Custom Nodes" icon="code" href="/advanced/custom-nodes">
+    Build your own custom nodes
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/nodes/fetch-node">
+    View complete node API documentation
+  </Card>
+</CardGroup>

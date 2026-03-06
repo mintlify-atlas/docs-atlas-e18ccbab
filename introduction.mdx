@@ -1,0 +1,146 @@
+---
+title: Introduction
+description: AI-powered web scraping library that uses LLMs and graph logic to extract data from websites and documents
+---
+
+# Welcome to ScrapeGraphAI
+
+ScrapeGraphAI is a revolutionary web scraping Python library that uses Large Language Models (LLMs) and direct graph logic to create scraping pipelines for websites and local documents. Instead of writing complex XPath selectors or CSS queries, you simply describe what information you want to extract in natural language.
+
+## What is ScrapeGraphAI?
+
+ScrapeGraphAI transforms the traditional web scraping paradigm by leveraging AI to understand and extract data from web pages. Just tell the library which information you want to extract, and it will do it for you automatically.
+
+<Note>
+  **You Only Scrape Once** - ScrapeGraphAI's motto reflects its intelligent approach to web scraping, where AI agents understand the structure and extract exactly what you need.
+</Note>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Natural Language Prompts" icon="message">
+    Extract data using simple text descriptions instead of complex selectors. No need to inspect HTML or write XPath queries.
+  </Card>
+  
+  <Card title="Multiple LLM Support" icon="brain">
+    Works with OpenAI, Anthropic, Groq, Azure, Gemini, and local models via Ollama. Choose the model that fits your needs and budget.
+  </Card>
+  
+  <Card title="Multiple Data Sources" icon="file">
+    Scrape from websites, HTML, XML, JSON, CSV, Markdown, and other document formats with the same simple interface.
+  </Card>
+  
+  <Card title="Built-in Graph Pipelines" icon="diagram-project">
+    Pre-built scraping pipelines for single pages, multi-page scraping, search results, and more complex scenarios.
+  </Card>
+</CardGroup>
+
+## Why Choose ScrapeGraphAI?
+
+### AI-Powered Intelligence
+
+Traditional web scrapers break when websites change their structure. ScrapeGraphAI uses LLMs to understand content semantically, making your scrapers more resilient to layout changes.
+
+### Developer-Friendly
+
+No need to:
+- Inspect element structures
+- Write complex CSS selectors or XPath queries
+- Handle pagination logic manually
+- Parse and structure data manually
+
+### Flexible Architecture
+
+Built on LangChain, ScrapeGraphAI provides:
+- **Modular graph nodes** for customizable pipelines
+- **Schema validation** using Pydantic models
+- **Multi-source scraping** from a single prompt
+- **Parallel execution** for improved performance
+
+## Available Pipelines
+
+ScrapeGraphAI comes with multiple pre-built graph pipelines:
+
+| Pipeline | Description |
+|----------|-------------|
+| **SmartScraperGraph** | Single-page scraper with a user prompt and input source |
+| **SearchGraph** | Multi-page scraper that extracts information from top search results |
+| **SpeechGraph** | Extracts information and generates an audio file |
+| **ScriptCreatorGraph** | Generates a Python script for scraping |
+| **SmartScraperMultiGraph** | Multi-page scraper with a single prompt and multiple sources |
+| **ScriptCreatorMultiGraph** | Generates Python scripts for multiple pages |
+
+<Note>
+  Each graph has a **multi version** that makes parallel LLM calls for improved performance.
+</Note>
+
+## Supported LLM Providers
+
+ScrapeGraphAI integrates with major LLM providers:
+
+- **OpenAI** (GPT-4, GPT-3.5, GPT-4o)
+- **Anthropic Claude**
+- **Google Gemini**
+- **Groq**
+- **Azure OpenAI**
+- **Ollama** (local models like Llama, Mistral, Phi)
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Data Collection" icon="database">
+    Gather product information, pricing data, or market research from multiple websites automatically.
+  </Card>
+  
+  <Card title="Content Aggregation" icon="newspaper">
+    Extract articles, blog posts, or news from various sources into a structured format.
+  </Card>
+  
+  <Card title="Lead Generation" icon="users">
+    Collect contact information, company details, and social media links from business websites.
+  </Card>
+  
+  <Card title="AI Agent Integration" icon="robot">
+    Provide clean, structured data to AI agents through integrations with LangChain, LlamaIndex, and Crew.ai.
+  </Card>
+</CardGroup>
+
+## Integration Ecosystem
+
+ScrapeGraphAI seamlessly integrates with popular frameworks:
+
+- **LLM Frameworks**: LangChain, LlamaIndex, Crew.ai, Agno, CamelAI
+- **Low-code Platforms**: Pipedream, Bubble, Zapier, n8n, Dify
+- **MCP Server**: Available on Smithery
+- **SDKs**: Python and Node.js SDKs for the hosted API
+
+## Performance
+
+<Note>
+  According to the Firecrawl benchmark, ScrapeGraphAI is the best fetcher on the market for accurate data extraction.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Get started by installing ScrapeGraphAI and its dependencies
+  </Card>
+  
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Build your first scraper in under 5 minutes
+  </Card>
+</CardGroup>
+
+## Community and Support
+
+Join the ScrapeGraphAI community:
+
+- **GitHub**: [ScrapeGraphAI/Scrapegraph-ai](https://github.com/ScrapeGraphAI/Scrapegraph-ai)
+- **Discord**: Join our [Discord server](https://discord.gg/gkxQDAjfeX)
+- **Documentation**: [Official docs](https://scrapegraph-ai.readthedocs.io/)
+- **PyPI**: [scrapegraphai package](https://pypi.org/project/scrapegraphai/)
+
+<Warning>
+  ScrapeGraphAI is meant to be used for data exploration and research purposes only. Always respect website terms of service and robots.txt files.
+</Warning>

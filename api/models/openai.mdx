@@ -1,0 +1,485 @@
+---
+title: 'OpenAI Models'
+description: 'Image-to-text and text-to-speech models using OpenAI APIs'
+---
+
+## OpenAIImageToText
+
+The `OpenAIImageToText` class provides image-to-text conversion capabilities using OpenAI's vision models. It extends LangChain's `ChatOpenAI` class with specialized methods for processing images.
+
+### Class Definition
+
+```python
+from scrapegraphai.models import OpenAIImageToText
+
+class OpenAIImageToText(ChatOpenAI):
+    """
+    A wrapper for the OpenAI vision models that converts images to text descriptions.
+    
+    Args:
+        llm_config (dict): Configuration parameters for the language model.
+    """
+```
+
+**Source:** `scrapegraphai/models/openai_itt.py:9`
+
+### Constructor
+
+```python
+OpenAIImageToText(llm_config: dict)
+```
+
+#### Parameters
+
+<ParamField path="llm_config" type="dict" required>
+  Configuration dictionary for the OpenAI model. Accepts all standard ChatOpenAI parameters.
+  
+  **Common fields:**
+  - `model` (str): Model identifier (e.g., "gpt-4-vision-preview", "gpt-4o")
+  - `api_key` (str): OpenAI API key
+  - `temperature` (float): Sampling temperature
+  - `base_url` (str, optional): Custom API base URL
+</ParamField>
+
+<Note>
+  The constructor automatically sets `max_tokens=256` for image descriptions. This provides a good balance between detail and cost for most use cases.
+</Note>
+
+### Methods
+
+#### run()
+
+Converts an image to a text description.
+
+```python
+run(image_url: str) -> str
+```
+
+**Source:** `scrapegraphai/models/openai_itt.py:23`
+
+##### Parameters
+
+<ParamField path="image_url" type="string" required>
+  The URL of the image to analyze. Supports both HTTP(S) URLs and base64-encoded data URIs.
+</ParamField>
+
+##### Returns
+
+<ResponseField name="description" type="string">
+  A text description of what the image shows.
+</ResponseField>
+
+### Usage Examples
+
+#### Basic Image Description
+
+```python
+from scrapegraphai.models import OpenAIImageToText
+
+# Initialize the model
+itt_model = OpenAIImageToText({
+    "model": "gpt-4-vision-preview",
+    "api_key": "your-openai-api-key",
+    "temperature": 0.5
+})
+
+# Analyze an image
+image_url = "https://example.com/product-image.jpg"
+description = itt_model.run(image_url)
+
+print(description)
+# Output: "This image showing a red bicycle with a basket..."
+```
+
+#### Integration with OmniScraperGraph
+
+The `OpenAIImageToText` model is primarily used within the `OmniScraperGraph` for automated image analysis:
+
+```python
+from scrapegraphai.graphs import OmniScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "gpt-4o",
+        "api_key": "your-openai-api-key"
+    },
+    "max_images": 10  # Process up to 10 images
+}
+
+omni_scraper = OmniScraperGraph(
+    prompt="List all products and describe their images",
+    source="https://example.com/shop",
+    config=graph_config
+)
+
+result = omni_scraper.run()
+```
+
+**Source:** `scrapegraphai/graphs/omni_scraper_graph.py:89`
+
+#### Custom Prompts
+
+While the default prompt is "What is this image showing", you can extend the class for custom prompts:
+
+```python
+from scrapegraphai.models import OpenAIImageToText
+from langchain_core.messages import HumanMessage
+
+class CustomImageAnalyzer(OpenAIImageToText):
+    def analyze_product(self, image_url: str) -> str:
+        """Analyze product features in an image."""
+        message = HumanMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": "Describe this product's features, colors, and condition in detail."
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": image_url, "detail": "high"}
+                }
+            ]
+        )
+        return self.invoke([message]).content
+
+# Usage
+analyzer = CustomImageAnalyzer({
+    "model": "gpt-4o",
+    "api_key": "your-api-key"
+})
+
+product_details = analyzer.analyze_product("https://example.com/product.jpg")
+```
+
+---
+
+## OpenAITextToSpeech
+
+The `OpenAITextToSpeech` class converts text to speech audio using OpenAI's TTS API. Unlike the LLM models, this is a standalone class that directly interfaces with the OpenAI API.
+
+### Class Definition
+
+```python
+from scrapegraphai.models import OpenAITextToSpeech
+
+class OpenAITextToSpeech:
+    """
+    Implements text-to-speech using the OpenAI API.
+    
+    Attributes:
+        client (OpenAI): The OpenAI client instance
+        model (str): The TTS model to use
+        voice (str): The voice model for generating speech
+    
+    Args:
+        tts_config (dict): Configuration parameters for the TTS model
+    """
+```
+
+**Source:** `scrapegraphai/models/openai_tts.py:8`
+
+### Constructor
+
+```python
+OpenAITextToSpeech(tts_config: dict)
+```
+
+#### Parameters
+
+<ParamField path="tts_config" type="dict" required>
+  Configuration dictionary for the TTS model.
+</ParamField>
+
+<ParamField path="tts_config.api_key" type="string" required>
+  Your OpenAI API key for authentication.
+</ParamField>
+
+<ParamField path="tts_config.model" type="string" default="tts-1">
+  The TTS model to use. Options:
+  - `tts-1`: Standard quality, faster
+  - `tts-1-hd`: Higher quality, slower
+</ParamField>
+
+<ParamField path="tts_config.voice" type="string" default="alloy">
+  The voice to use for speech generation. Available voices:
+  - `alloy`: Neutral, balanced
+  - `echo`: Male, clear
+  - `fable`: British accent
+  - `onyx`: Deep, authoritative
+  - `nova`: Female, energetic
+  - `shimmer`: Soft, warm
+</ParamField>
+
+<ParamField path="tts_config.base_url" type="string" optional>
+  Custom API base URL (for OpenAI-compatible services).
+</ParamField>
+
+### Methods
+
+#### run()
+
+Converts text to speech audio.
+
+```python
+run(text: str) -> bytes
+```
+
+**Source:** `scrapegraphai/models/openai_tts.py:28`
+
+##### Parameters
+
+<ParamField path="text" type="string" required>
+  The text to convert to speech. Maximum length depends on the model (typically ~4096 characters).
+</ParamField>
+
+##### Returns
+
+<ResponseField name="audio" type="bytes">
+  The generated speech audio in MP3 format as raw bytes.
+</ResponseField>
+
+### Usage Examples
+
+#### Basic Text-to-Speech
+
+```python
+from scrapegraphai.models import OpenAITextToSpeech
+
+# Initialize the TTS model
+tts = OpenAITextToSpeech({
+    "api_key": "your-openai-api-key",
+    "model": "tts-1-hd",
+    "voice": "nova"
+})
+
+# Generate speech
+text = "Welcome to ScrapeGraphAI. This library makes web scraping intelligent."
+audio_bytes = tts.run(text)
+
+# Save to file
+with open("output.mp3", "wb") as f:
+    f.write(audio_bytes)
+```
+
+#### Integration with SpeechGraph
+
+The `OpenAITextToSpeech` model is designed for use in the `SpeechGraph` pipeline:
+
+```python
+from scrapegraphai.graphs import SpeechGraph
+
+graph_config = {
+    "llm": {
+        "model": "gpt-3.5-turbo",
+        "api_key": "your-openai-api-key"
+    },
+    "tts_model": {
+        "api_key": "your-openai-api-key",
+        "model": "tts-1",
+        "voice": "alloy"
+    },
+    "output_path": "attractions.mp3"
+}
+
+speech_graph = SpeechGraph(
+    prompt="List the main attractions in Chioggia and create an audio summary",
+    source="https://en.wikipedia.org/wiki/Chioggia",
+    config=graph_config
+)
+
+# Runs the scraping pipeline and saves audio
+result = speech_graph.run()
+print(result)  # Text answer
+# Audio saved to attractions.mp3
+```
+
+**Source:** `scrapegraphai/graphs/speech_graph.py:83`
+
+#### Different Voices Comparison
+
+```python
+from scrapegraphai.models import OpenAITextToSpeech
+
+text = "This is a sample of the voice."
+voices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
+
+for voice in voices:
+    tts = OpenAITextToSpeech({
+        "api_key": "your-api-key",
+        "voice": voice
+    })
+    
+    audio = tts.run(text)
+    
+    with open(f"sample_{voice}.mp3", "wb") as f:
+        f.write(audio)
+    
+    print(f"Generated sample_{voice}.mp3")
+```
+
+#### Long Text Processing
+
+For longer texts, split into chunks:
+
+```python
+from scrapegraphai.models import OpenAITextToSpeech
+import re
+
+def text_to_speech_long(text: str, output_file: str, chunk_size: int = 4000):
+    """Convert long text to speech by splitting into chunks."""
+    tts = OpenAITextToSpeech({
+        "api_key": "your-api-key",
+        "model": "tts-1"
+    })
+    
+    # Split on sentence boundaries
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    
+    chunks = []
+    current_chunk = ""
+    
+    for sentence in sentences:
+        if len(current_chunk) + len(sentence) < chunk_size:
+            current_chunk += sentence + " "
+        else:
+            chunks.append(current_chunk.strip())
+            current_chunk = sentence + " "
+    
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+    
+    # Generate audio for each chunk
+    all_audio = b""
+    for i, chunk in enumerate(chunks):
+        print(f"Processing chunk {i+1}/{len(chunks)}...")
+        audio = tts.run(chunk)
+        all_audio += audio
+    
+    # Save combined audio
+    with open(output_file, "wb") as f:
+        f.write(all_audio)
+    
+    print(f"Saved {output_file}")
+
+# Usage
+long_text = """Your very long text here..."""
+text_to_speech_long(long_text, "long_output.mp3")
+```
+
+## Implementation Details
+
+### Image-to-Text Architecture
+
+The `OpenAIImageToText` class uses LangChain's message format:
+
+```python
+from langchain_core.messages import HumanMessage
+
+message = HumanMessage(
+    content=[
+        {"type": "text", "text": "What is this image showing"},
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": image_url,
+                "detail": "auto"  # Can be 'low', 'high', or 'auto'
+            }
+        }
+    ]
+)
+
+result = self.invoke([message]).content
+```
+
+**Source:** `scrapegraphai/models/openai_itt.py:33`
+
+The `detail` parameter controls the image resolution:
+- `low`: Faster, lower cost, 512x512px
+- `high`: More detailed, higher cost, up to 2048x2048px  
+- `auto`: Automatically chooses based on image size
+
+### Text-to-Speech API
+
+The `OpenAITextToSpeech` class directly uses the OpenAI Python client:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key=api_key, base_url=base_url)
+response = client.audio.speech.create(
+    model=model,
+    voice=voice,
+    input=text
+)
+
+return response.content  # Raw MP3 bytes
+```
+
+**Source:** `scrapegraphai/models/openai_tts.py:38`
+
+## Best Practices
+
+### Image-to-Text
+
+1. **Image Quality**: Use clear, well-lit images for best results
+2. **URL Accessibility**: Ensure image URLs are publicly accessible
+3. **Token Limits**: The default 256 tokens works for most descriptions; increase if needed
+4. **Batch Processing**: Use `OmniScraperGraph` with `max_images` for multiple images
+
+### Text-to-Speech
+
+1. **Voice Selection**: Test different voices for your use case
+2. **Text Length**: Keep chunks under 4000 characters for reliability
+3. **File Format**: Output is always MP3 format
+4. **Cost Management**: Use `tts-1` for drafts, `tts-1-hd` for production
+
+## Error Handling
+
+```python
+from scrapegraphai.models import OpenAIImageToText, OpenAITextToSpeech
+from openai import OpenAIError
+
+# Image-to-text with error handling
+try:
+    itt = OpenAIImageToText({
+        "model": "gpt-4-vision-preview",
+        "api_key": "your-key"
+    })
+    description = itt.run("https://example.com/image.jpg")
+except OpenAIError as e:
+    print(f"OpenAI API error: {e}")
+except Exception as e:
+    print(f"Unexpected error: {e}")
+
+# Text-to-speech with error handling
+try:
+    tts = OpenAITextToSpeech({
+        "api_key": "your-key",
+        "voice": "nova"
+    })
+    audio = tts.run("Hello world")
+    
+    with open("output.mp3", "wb") as f:
+        f.write(audio)
+except OpenAIError as e:
+    print(f"OpenAI API error: {e}")
+except IOError as e:
+    print(f"File write error: {e}")
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="OmniScraperGraph" icon="images" href="/api/graphs/omni-scraper">
+    Graph that uses image-to-text models
+  </Card>
+  <Card title="SpeechGraph" icon="volume" href="/api/graphs/speech">
+    Graph that generates audio output
+  </Card>
+  <Card title="Models Overview" icon="cube" href="/api/models/overview">
+    All available custom models
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/llm-providers">
+    Model configuration guide
+  </Card>
+</CardGroup>

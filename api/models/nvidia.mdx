@@ -1,0 +1,520 @@
+---
+title: 'Nvidia'
+description: 'NVIDIA AI Foundation models integration for ScrapeGraphAI'
+---
+
+## Overview
+
+The `Nvidia` class provides integration with NVIDIA AI Foundation models through the LangChain NVIDIA AI Endpoints. It uses a lazy-loading pattern to handle the optional dependency gracefully.
+
+<Info>
+  NVIDIA AI Foundation models offer optimized inference on NVIDIA infrastructure, providing fast and efficient AI capabilities.
+</Info>
+
+## Class Definition
+
+```python
+from scrapegraphai.models import Nvidia
+
+class Nvidia:
+    """
+    A wrapper for the ChatNVIDIA class that provides default configuration
+    and could be extended with additional methods.
+    
+    Note: This class uses __new__ instead of __init__ because 
+    langchain_nvidia_ai_endpoints is an optional dependency. We cannot inherit
+    from ChatNVIDIA at class definition time since the module may not be installed.
+    The __new__ method allows us to lazily import and return a ChatNVIDIA instance
+    only when Nvidia() is instantiated.
+    
+    Args:
+        llm_config (dict): Configuration parameters for the language model.
+    """
+```
+
+**Source:** `scrapegraphai/models/nvidia.py:6`
+
+## Installation
+
+Before using the Nvidia model, install the required dependency:
+
+```bash
+pip install langchain-nvidia-ai-endpoints
+```
+
+<Warning>
+  If the `langchain-nvidia-ai-endpoints` package is not installed, attempting to instantiate `Nvidia` will raise an `ImportError` with installation instructions.
+</Warning>
+
+## Constructor
+
+```python
+Nvidia(**llm_config)
+```
+
+### Parameters
+
+<ParamField path="model" type="string" required>
+  NVIDIA model identifier. Available models include:
+  - `meta/llama-3.1-8b-instruct`: Meta's Llama 3.1 8B
+  - `meta/llama-3.1-70b-instruct`: Meta's Llama 3.1 70B
+  - `mistralai/mixtral-8x7b-instruct-v0.1`: Mixtral 8x7B
+  - `google/gemma-7b`: Google's Gemma 7B
+  
+  Check [NVIDIA API Catalog](https://build.nvidia.com/explore/discover) for the full list.
+</ParamField>
+
+<ParamField path="api_key" type="string" required>
+  Your NVIDIA API key. Get one from [NVIDIA API Catalog](https://build.nvidia.com/).
+  
+  <Note>
+    The `api_key` parameter is automatically converted to `nvidia_api_key` internally for compatibility with the ChatNVIDIA interface.
+  </Note>
+</ParamField>
+
+<ParamField path="temperature" type="float" default="0.7">
+  Controls randomness in responses. Range: 0.0 to 1.0.
+  - Lower values (0.0-0.3): More deterministic
+  - Medium values (0.4-0.7): Balanced
+  - Higher values (0.8-1.0): More creative
+</ParamField>
+
+<ParamField path="max_tokens" type="int" optional>
+  Maximum number of tokens to generate in the response.
+</ParamField>
+
+<ParamField path="streaming" type="bool" default="false">
+  Enable streaming responses for real-time output.
+</ParamField>
+
+<ParamField path="**kwargs" type="any">
+  Additional parameters supported by LangChain's ChatNVIDIA class, including:
+  - `top_p`: Nucleus sampling parameter
+  - `timeout`: Request timeout in seconds
+</ParamField>
+
+## Implementation Details
+
+The `Nvidia` class uses the `__new__` method for lazy loading:
+
+```python
+def __new__(cls, **llm_config):
+    try:
+        from langchain_nvidia_ai_endpoints import ChatNVIDIA
+    except ImportError:
+        raise ImportError(
+            """The langchain_nvidia_ai_endpoints module is not installed.
+               Please install it using `pip install langchain-nvidia-ai-endpoints`."""
+        )
+    
+    if "api_key" in llm_config:
+        llm_config["nvidia_api_key"] = llm_config.pop("api_key")
+    
+    return ChatNVIDIA(**llm_config)
+```
+
+**Source:** `scrapegraphai/models/nvidia.py:20`
+
+### Why `__new__` Instead of `__init__`?
+
+This design pattern:
+1. **Avoids import errors**: The module isn't imported until instantiation
+2. **Optional dependency**: Users without NVIDIA don't need the package installed
+3. **Graceful failures**: Clear error message with installation instructions
+4. **Full compatibility**: Returns actual `ChatNVIDIA` instance with all features
+
+## Usage Examples
+
+### Basic Usage with SmartScraperGraph
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+from scrapegraphai.models import Nvidia
+
+graph_config = {
+    "llm": {
+        "model": "meta/llama-3.1-8b-instruct",
+        "api_key": "your-nvidia-api-key",
+        "temperature": 0.5
+    },
+    "verbose": True
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract all article titles and summaries",
+    source="https://example.com/news",
+    config=graph_config
+)
+
+result = scraper.run()
+print(result)
+```
+
+### Direct Model Usage
+
+```python
+from scrapegraphai.models import Nvidia
+from langchain_core.messages import HumanMessage
+
+# Initialize the model
+llm = Nvidia(
+    model="meta/llama-3.1-70b-instruct",
+    api_key="your-nvidia-api-key",
+    temperature=0.7,
+    max_tokens=2000
+)
+
+# Use with LangChain
+messages = [
+    HumanMessage(content="Explain the benefits of GPU-accelerated AI inference")
+]
+
+response = llm.invoke(messages)
+print(response.content)
+```
+
+### Streaming Responses
+
+```python
+from scrapegraphai.models import Nvidia
+from langchain_core.messages import HumanMessage
+
+llm = Nvidia(
+    model="meta/llama-3.1-8b-instruct",
+    api_key="your-nvidia-api-key",
+    streaming=True
+)
+
+messages = [HumanMessage(content="Describe web scraping techniques")]
+
+print("Response: ", end="")
+for chunk in llm.stream(messages):
+    print(chunk.content, end="", flush=True)
+print()
+```
+
+### Using Different NVIDIA Models
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+
+# Compare results from different models
+models = [
+    "meta/llama-3.1-8b-instruct",
+    "meta/llama-3.1-70b-instruct",
+    "mistralai/mixtral-8x7b-instruct-v0.1"
+]
+
+for model in models:
+    print(f"\n=== Testing {model} ===")
+    
+    graph_config = {
+        "llm": {
+            "model": model,
+            "api_key": "your-nvidia-api-key",
+            "temperature": 0.3
+        }
+    }
+    
+    scraper = SmartScraperGraph(
+        prompt="Extract the main topic of this page",
+        source="https://example.com",
+        config=graph_config
+    )
+    
+    result = scraper.run()
+    print(result)
+```
+
+### With Structured Output
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+from pydantic import BaseModel, Field
+from typing import List
+
+class Article(BaseModel):
+    title: str = Field(description="Article title")
+    author: str = Field(description="Article author")
+    date: str = Field(description="Publication date")
+    summary: str = Field(description="Brief summary")
+
+class ArticleList(BaseModel):
+    articles: List[Article]
+
+graph_config = {
+    "llm": {
+        "model": "meta/llama-3.1-70b-instruct",
+        "api_key": "your-nvidia-api-key",
+        "temperature": 0.0  # Deterministic for structured data
+    }
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract all articles with their metadata",
+    source="https://example.com/blog",
+    config=graph_config,
+    schema=ArticleList
+)
+
+result = scraper.run()
+for article in result.articles:
+    print(f"Title: {article.title}")
+    print(f"Author: {article.author}")
+    print(f"Date: {article.date}")
+    print(f"Summary: {article.summary}")
+    print("---")
+```
+
+### Multi-Source Scraping
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+import concurrent.futures
+
+def scrape_url(url: str) -> dict:
+    """Scrape a single URL using NVIDIA models."""
+    graph_config = {
+        "llm": {
+            "model": "meta/llama-3.1-8b-instruct",
+            "api_key": "your-nvidia-api-key"
+        }
+    }
+    
+    scraper = SmartScraperGraph(
+        prompt="Extract the main content and key points",
+        source=url,
+        config=graph_config
+    )
+    
+    return {"url": url, "result": scraper.run()}
+
+urls = [
+    "https://example.com/page1",
+    "https://example.com/page2",
+    "https://example.com/page3"
+]
+
+# Parallel scraping
+with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+    results = list(executor.map(scrape_url, urls))
+
+for result in results:
+    print(f"\nResults from {result['url']}:")
+    print(result['result'])
+```
+
+## Configuration Best Practices
+
+### Model Selection
+
+```python
+# For quick, cost-effective scraping (smaller models)
+config = {
+    "llm": {
+        "model": "meta/llama-3.1-8b-instruct",  # Faster, lower cost
+        "api_key": "your-key",
+        "temperature": 0.3
+    }
+}
+
+# For complex extraction tasks (larger models)
+config = {
+    "llm": {
+        "model": "meta/llama-3.1-70b-instruct",  # Better accuracy
+        "api_key": "your-key",
+        "temperature": 0.1
+    }
+}
+
+# For creative content generation
+config = {
+    "llm": {
+        "model": "mistralai/mixtral-8x7b-instruct-v0.1",
+        "api_key": "your-key",
+        "temperature": 0.8
+    }
+}
+```
+
+### Performance Optimization
+
+```python
+from scrapegraphai.models import Nvidia
+
+# Optimize for speed
+llm = Nvidia(
+    model="meta/llama-3.1-8b-instruct",  # Smaller, faster model
+    api_key="your-key",
+    max_tokens=500,  # Limit response length
+    timeout=20  # Fail fast
+)
+
+# Optimize for accuracy
+llm = Nvidia(
+    model="meta/llama-3.1-70b-instruct",  # Larger, more capable
+    api_key="your-key",
+    temperature=0.0,  # Deterministic
+    max_tokens=2000  # Allow detailed responses
+)
+```
+
+## Error Handling
+
+### Missing Dependency
+
+```python
+try:
+    from scrapegraphai.models import Nvidia
+    
+    llm = Nvidia(
+        model="meta/llama-3.1-8b-instruct",
+        api_key="your-key"
+    )
+except ImportError as e:
+    print(f"Installation required: {e}")
+    print("Run: pip install langchain-nvidia-ai-endpoints")
+```
+
+### API Errors
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+import time
+
+def scrape_with_retry(url: str, max_attempts: int = 3):
+    """Scrape with exponential backoff retry."""
+    for attempt in range(max_attempts):
+        try:
+            graph_config = {
+                "llm": {
+                    "model": "meta/llama-3.1-8b-instruct",
+                    "api_key": "your-nvidia-api-key"
+                }
+            }
+            
+            scraper = SmartScraperGraph(
+                prompt="Extract content",
+                source=url,
+                config=graph_config
+            )
+            
+            return scraper.run()
+            
+        except Exception as e:
+            if attempt < max_attempts - 1:
+                wait_time = 2 ** attempt
+                print(f"Error: {e}. Retrying in {wait_time}s...")
+                time.sleep(wait_time)
+            else:
+                print(f"Failed after {max_attempts} attempts: {e}")
+                raise
+
+result = scrape_with_retry("https://example.com")
+```
+
+## Advanced Features
+
+### Custom System Prompts
+
+```python
+from scrapegraphai.models import Nvidia
+from langchain_core.messages import SystemMessage, HumanMessage
+
+llm = Nvidia(
+    model="meta/llama-3.1-70b-instruct",
+    api_key="your-nvidia-api-key"
+)
+
+messages = [
+    SystemMessage(
+        content="You are an expert web scraper. Extract data in JSON format."
+    ),
+    HumanMessage(
+        content="Extract product information from: <html>...</html>"
+    )
+]
+
+response = llm.invoke(messages)
+print(response.content)
+```
+
+### Batch Processing
+
+```python
+from scrapegraphai.models import Nvidia
+from langchain_core.messages import HumanMessage
+
+llm = Nvidia(
+    model="meta/llama-3.1-8b-instruct",
+    api_key="your-nvidia-api-key",
+    temperature=0.0
+)
+
+# Process multiple prompts efficiently
+prompts = [
+    "Extract all email addresses from this text: ...",
+    "Summarize this article: ...",
+    "List all product features: ..."
+]
+
+message_batches = [[HumanMessage(content=p)] for p in prompts]
+responses = llm.batch(message_batches)
+
+for i, response in enumerate(responses):
+    print(f"\nResponse {i+1}:")
+    print(response.content)
+```
+
+## Model Comparison
+
+| Model | Size | Best For | Speed | Cost |
+|-------|------|----------|-------|------|
+| llama-3.1-8b-instruct | 8B | General scraping, high volume | Fast | Low |
+| llama-3.1-70b-instruct | 70B | Complex extraction, accuracy | Medium | Medium |
+| mixtral-8x7b-instruct | 8x7B | Balanced performance | Medium | Medium |
+| gemma-7b | 7B | Lightweight tasks | Fast | Low |
+
+## Environment Variables
+
+```python
+import os
+from scrapegraphai.graphs import SmartScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "meta/llama-3.1-8b-instruct",
+        "api_key": os.getenv("NVIDIA_API_KEY"),
+        "temperature": 0.5
+    }
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract content",
+    source="https://example.com",
+    config=graph_config
+)
+```
+
+Set the environment variable:
+
+```bash
+export NVIDIA_API_KEY="your-api-key-here"
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Models Overview" icon="cube" href="/api/models/overview">
+    All available custom models
+  </Card>
+  <Card title="DeepSeek" icon="brain" href="/api/models/deepseek">
+    Alternative cost-effective LLM
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/llm-providers">
+    Detailed configuration guide
+  </Card>
+  <Card title="NVIDIA API Catalog" icon="external-link" href="https://build.nvidia.com/">
+    Get API key and explore models
+  </Card>
+</CardGroup>

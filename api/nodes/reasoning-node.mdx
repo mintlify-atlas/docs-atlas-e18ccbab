@@ -1,0 +1,518 @@
+---
+title: "ReasoningNode"
+description: "Refine user prompts with schema-based reasoning for better extraction"
+---
+
+## Overview
+
+The `ReasoningNode` (also known as `PromptRefinerNode`) refines user prompts using the output schema and additional context. It creates precise prompts that explicitly link elements in the user's original input to their corresponding representations in the JSON schema, improving extraction accuracy.
+
+## Class Signature
+
+```python
+class ReasoningNode(BaseNode):
+    def __init__(
+        self,
+        input: str,
+        output: List[str],
+        node_config: Optional[dict] = None,
+        node_name: str = "PromptRefiner",
+    )
+```
+
+Source: `scrapegraphai/nodes/reasoning_node.py:16`
+
+## Parameters
+
+<ParamField path="input" type="str" required>
+  Boolean expression defining the input keys needed from the state. Typically `"user_prompt"` or `"user_prompt & document"`
+</ParamField>
+
+<ParamField path="output" type="List[str]" required>
+  List of output keys to be updated in the state. Typically `["refined_prompt"]`
+</ParamField>
+
+<ParamField path="node_config" type="dict" required>
+  Configuration dictionary with the following options:
+
+  <Expandable title="Configuration Options">
+    <ParamField path="llm_model" type="object" required>
+      Language model instance for prompt refinement (ChatOpenAI, ChatOllama, etc.)
+    </ParamField>
+
+    <ParamField path="schema" type="BaseModel" required>
+      Pydantic model defining the expected output structure. Used to guide prompt refinement.
+    </ParamField>
+
+    <ParamField path="verbose" type="bool" default="False">
+      Whether to show print statements during execution
+    </ParamField>
+
+    <ParamField path="force" type="bool" default="False">
+      Force certain behaviors, overriding defaults
+    </ParamField>
+
+    <ParamField path="additional_info" type="str" default="None">
+      Additional context to include in the prompt refinement process
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="node_name" type="str" default="PromptRefiner">
+  The unique identifier name for the node
+</ParamField>
+
+## State Keys
+
+### Input State
+
+<ParamField path="user_prompt" type="str">
+  The original user query or extraction instruction
+</ParamField>
+
+### Output State
+
+<ParamField path="refined_prompt" type="str">
+  The refined and enhanced prompt that maps user intent to schema fields
+</ParamField>
+
+## Methods
+
+### execute(state: dict) -> dict
+
+Generates a refined prompt for the reasoning task based on the user's input and the JSON schema.
+
+```python
+def execute(self, state: dict) -> dict:
+    """
+    Generate a refined prompt for the reasoning task based on the user's input and the JSON schema.
+    
+    Args:
+        state (dict): The current state of the graph.
+    
+    Returns:
+        dict: The updated state with the output key containing the refined prompt.
+    """
+```
+
+Source: `scrapegraphai/nodes/reasoning_node.py:56`
+
+**Returns:** Updated state dictionary with refined prompt
+
+## Usage Examples
+
+### Basic Prompt Refinement
+
+```python
+from scrapegraphai.nodes import ReasoningNode
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
+from typing import List
+
+# Define output schema
+class ProductInfo(BaseModel):
+    name: str = Field(description="Product name")
+    price: float = Field(description="Price in USD")
+    features: List[str] = Field(description="Key features")
+    rating: float = Field(description="Customer rating out of 5")
+
+# Create reasoning node
+reasoning_node = ReasoningNode(
+    input="user_prompt",
+    output=["refined_prompt"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "schema": ProductInfo,
+        "verbose": True
+    }
+)
+
+# Execute node
+state = {
+    "user_prompt": "Get me the product details"
+}
+updated_state = reasoning_node.execute(state)
+
+print(updated_state["refined_prompt"])
+# Output: "Extract the following product information: 
+#          - The product name (name field)
+#          - The price in USD (price field as a float)
+#          - A list of key product features (features field)
+#          - The customer rating out of 5 stars (rating field as a float)"
+```
+
+### With Additional Context
+
+```python
+class ArticleData(BaseModel):
+    title: str = Field(description="Article title")
+    author: str = Field(description="Author name")
+    publish_date: str = Field(description="Publication date")
+    summary: str = Field(description="Article summary")
+    tags: List[str] = Field(description="Article tags/categories")
+
+reasoning_node = ReasoningNode(
+    input="user_prompt",
+    output=["refined_prompt"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "schema": ArticleData,
+        "additional_info": """This is a news website. 
+                             Dates are typically in MM/DD/YYYY format.
+                             Focus on extracting factual information.""",
+        "verbose": False
+    }
+)
+
+state = {
+    "user_prompt": "Extract article information"
+}
+updated_state = reasoning_node.execute(state)
+
+print(updated_state["refined_prompt"])
+# Output includes additional context about date formats and focus on facts
+```
+
+### Complex Schema Refinement
+
+```python
+class CompanyData(BaseModel):
+    company_name: str = Field(description="Official company name")
+    headquarters: str = Field(description="Location of headquarters")
+    founded_year: int = Field(description="Year company was founded")
+    employees: int = Field(description="Number of employees")
+    revenue: float = Field(description="Annual revenue in millions USD")
+    industries: List[str] = Field(description="Industries/sectors")
+    
+reasoning_node = ReasoningNode(
+    input="user_prompt",
+    output=["refined_prompt"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "schema": CompanyData,
+        "verbose": True
+    }
+)
+
+state = {
+    "user_prompt": "Get company info"
+}
+updated_state = reasoning_node.execute(state)
+
+# Refined prompt explicitly maps each field with type information
+```
+
+### Using Ollama Model
+
+```python
+from langchain_community.chat_models import ChatOllama
+
+class ContactInfo(BaseModel):
+    email: str = Field(description="Email address")
+    phone: str = Field(description="Phone number")
+    address: str = Field(description="Physical address")
+
+reasoning_node = ReasoningNode(
+    input="user_prompt",
+    output=["refined_prompt"],
+    node_config={
+        "llm_model": ChatOllama(model="llama3"),
+        "schema": ContactInfo,
+        "verbose": False
+    }
+)
+
+state = {
+    "user_prompt": "Find contact details"
+}
+updated_state = reasoning_node.execute(state)
+```
+
+### E-commerce Product Schema
+
+```python
+class EcommerceProduct(BaseModel):
+    product_id: str = Field(description="Unique product identifier")
+    name: str = Field(description="Product name/title")
+    brand: str = Field(description="Product brand")
+    category: str = Field(description="Product category")
+    price: float = Field(description="Current price")
+    original_price: float = Field(description="Original price before discount")
+    discount_percent: float = Field(description="Discount percentage")
+    availability: str = Field(description="Stock availability status")
+    specifications: dict = Field(description="Technical specifications")
+
+reasoning_node = ReasoningNode(
+    input="user_prompt",
+    output=["refined_prompt"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "schema": EcommerceProduct,
+        "additional_info": """Extract all product information from the e-commerce page.
+                             Calculate discount_percent if not directly shown.
+                             availability should be 'in_stock', 'out_of_stock', or 'pre_order'.""",
+        "verbose": True
+    }
+)
+
+state = {
+    "user_prompt": "Extract product data from this page"
+}
+updated_state = reasoning_node.execute(state)
+```
+
+### Recipe Extraction Schema
+
+```python
+class Recipe(BaseModel):
+    title: str = Field(description="Recipe title")
+    description: str = Field(description="Recipe description")
+    prep_time: int = Field(description="Preparation time in minutes")
+    cook_time: int = Field(description="Cooking time in minutes")
+    servings: int = Field(description="Number of servings")
+    ingredients: List[str] = Field(description="List of ingredients with quantities")
+    instructions: List[str] = Field(description="Step-by-step cooking instructions")
+    difficulty: str = Field(description="Difficulty level: easy, medium, or hard")
+    calories: int = Field(description="Calories per serving")
+
+reasoning_node = ReasoningNode(
+    input="user_prompt",
+    output=["refined_prompt"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "schema": Recipe,
+        "additional_info": """This is a recipe website.
+                             Times should be converted to minutes.
+                             Instructions should be numbered steps.""",
+        "verbose": False
+    }
+)
+
+state = {
+    "user_prompt": "Get the recipe details"
+}
+updated_state = reasoning_node.execute(state)
+```
+
+## Prompt Refinement Process
+
+The ReasoningNode follows this process:
+
+1. **Schema Simplification**
+   - Converts Pydantic schema to simplified format
+   - Extracts field names, types, and descriptions
+   - Creates readable schema representation
+
+2. **Template Selection**
+   - Uses `TEMPLATE_REASONING` (default)
+   - Uses `TEMPLATE_REASONING_WITH_CONTEXT` if `additional_info` provided
+
+3. **Prompt Construction**
+   - Combines user prompt, schema, and context
+   - Generates detailed extraction instructions
+   - Maps user intent to schema fields
+
+4. **LLM Refinement**
+   - Sends prompt to language model
+   - Receives refined, explicit instructions
+   - Returns enhanced prompt string
+
+## Prompt Templates
+
+### TEMPLATE_REASONING
+
+Used when no additional context provided:
+
+```python
+"""Given the user's input: {user_input}
+
+And the following JSON schema: {json_schema}
+
+Generate a refined prompt that explicitly maps the user's request to the schema fields.
+Provide clear instructions for extracting each field.
+"""
+```
+
+### TEMPLATE_REASONING_WITH_CONTEXT
+
+Used when `additional_info` is provided:
+
+```python
+"""Given the user's input: {user_input}
+
+And the following JSON schema: {json_schema}
+
+Additional context: {additional_context}
+
+Generate a refined prompt that explicitly maps the user's request to the schema fields.
+Consider the additional context when creating extraction instructions.
+"""
+```
+
+## Schema Transformation
+
+The node transforms Pydantic schemas into a simplified format:
+
+**Original Pydantic Schema:**
+```python
+class Product(BaseModel):
+    name: str = Field(description="Product name")
+    price: float = Field(description="Price in USD")
+    features: List[str] = Field(description="Key features")
+```
+
+**Transformed Simplified Schema:**
+```python
+{
+    "name": {"type": "str", "description": "Product name"},
+    "price": {"type": "float", "description": "Price in USD"},
+    "features": {"type": "List[str]", "description": "Key features"}
+}
+```
+
+This simplified format is easier for LLMs to understand and work with.
+
+## Benefits of Prompt Refinement
+
+1. **Improved Accuracy**
+   - Explicit field mapping reduces extraction errors
+   - Clear instructions improve consistency
+
+2. **Better Type Handling**
+   - LLM aware of expected data types
+   - Reduces type conversion errors
+
+3. **Context Integration**
+   - Domain-specific knowledge incorporated
+   - Format specifications included
+
+4. **Reduced Ambiguity**
+   - Vague user prompts made specific
+   - Field mappings explicitly stated
+
+5. **Consistent Results**
+   - Standardized extraction instructions
+   - Reproducible outputs
+
+## Before vs After Examples
+
+### Example 1: Product Extraction
+
+**Before Refinement:**
+```
+"Get product information"
+```
+
+**After Refinement:**
+```
+"Extract the following product information from the page:
+- Product name (map to 'name' field as string)
+- Current price in USD (map to 'price' field as float)
+- List of key product features (map to 'features' field as list of strings)
+- Customer rating out of 5 (map to 'rating' field as float)
+
+Ensure all fields are extracted even if some values are not explicitly labeled."
+```
+
+### Example 2: Contact Information
+
+**Before Refinement:**
+```
+"Find contact details"
+```
+
+**After Refinement:**
+```
+"Locate and extract contact information:
+- Email address in standard email format (email field)
+- Phone number with country code if available (phone field)
+- Complete physical address including street, city, and postal code (address field)
+
+Look for these in footer, contact page sections, or header areas."
+```
+
+## Integration with GenerateAnswerNode
+
+The ReasoningNode is typically used before GenerateAnswerNode:
+
+```python
+from scrapegraphai.nodes import ReasoningNode, GenerateAnswerNode
+
+# Step 1: Refine the prompt
+reasoning = ReasoningNode(
+    input="user_prompt",
+    output=["refined_prompt"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "schema": YourSchema
+    }
+)
+
+# Step 2: Use refined prompt for extraction
+generate = GenerateAnswerNode(
+    input="refined_prompt & parsed_doc",  # Use refined_prompt instead of user_prompt
+    output=["answer"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "schema": YourSchema
+    }
+)
+
+# Execute in sequence
+state = {"user_prompt": "Extract product info"}
+state = reasoning.execute(state)
+state = generate.execute(state)
+```
+
+## Best Practices
+
+1. **Use descriptive field descriptions** - Better descriptions lead to better refinement
+   ```python
+   # Good
+   price: float = Field(description="Current product price in USD, excluding tax")
+   
+   # Less helpful
+   price: float = Field(description="Price")
+   ```
+
+2. **Provide domain context** - Use `additional_info` for domain-specific rules
+   ```python
+   node_config = {
+       "additional_info": "Prices on this site are in EUR. Dates use DD/MM/YYYY format."
+   }
+   ```
+
+3. **Keep schemas focused** - Don't include unnecessary fields
+   ```python
+   # Extract only what you need
+   class MinimalProduct(BaseModel):
+       name: str
+       price: float
+   ```
+
+4. **Use appropriate models** - GPT-4 or Claude for complex schemas, smaller models for simple ones
+
+5. **Test refinement quality** - Check refined prompts with verbose mode
+   ```python
+   node_config = {"verbose": True}  # See what prompt is generated
+   ```
+
+6. **Combine with examples** - Add example outputs in additional_info
+   ```python
+   additional_info = """Example output:
+   {"name": "Widget Pro", "price": 99.99, "features": ["Durable", "Waterproof"]}
+   """
+   ```
+
+## Performance Considerations
+
+- **Adds one LLM call** - Approximately 1-3 seconds overhead
+- **Improves downstream accuracy** - Worth the latency for complex extractions
+- **Cache friendly** - Same user_prompt + schema = same refined prompt
+- **Token usage** - ~200-500 tokens per refinement
+
+## Related Nodes
+
+- [GenerateAnswerNode](/api/nodes/generate-answer-node) - Uses refined prompts for extraction
+- [ParseNode](/api/nodes/parse-node) - Prepares content before reasoning
+- [FetchNode](/api/nodes/fetch-node) - Fetches content to process

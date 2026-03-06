@@ -1,0 +1,401 @@
+---
+title: CSVScraperGraph
+description: Extract information from CSV files using natural language prompts
+icon: "file-csv"
+---
+
+## Overview
+
+`CSVScraperGraph` is a scraping pipeline that extracts information from CSV files using natural language queries. It allows you to query CSV data without writing SQL or pandas code.
+
+## Class Signature
+
+```python
+class CSVScraperGraph(AbstractGraph):
+    def __init__(
+        self,
+        prompt: str,
+        source: str,
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None,
+    )
+```
+
+## Constructor Parameters
+
+<ParamField path="prompt" type="str" required>
+  The natural language query to extract information from the CSV file.
+</ParamField>
+
+<ParamField path="source" type="str" required>
+  The source CSV file or directory. Can be:
+  - Path to a single CSV file (e.g., `"data.csv"`)
+  - Path to a directory containing multiple CSV files (e.g., `"./csv_data/"`)
+</ParamField>
+
+<ParamField path="config" type="dict" required>
+  Configuration parameters for the graph. Must include:
+  - `llm`: LLM configuration (e.g., `{"model": "openai/gpt-4o"}`)
+  
+  Optional parameters:
+  - `verbose` (bool): Enable detailed logging
+  - `additional_info` (str): Extra context for the LLM
+</ParamField>
+
+<ParamField path="schema" type="Type[BaseModel]" default="None">
+  Optional Pydantic model defining the expected output structure.
+</ParamField>
+
+## Attributes
+
+<ResponseField name="prompt" type="str">
+  The user's query prompt.
+</ResponseField>
+
+<ResponseField name="source" type="str">
+  The CSV file path or directory path.
+</ResponseField>
+
+<ResponseField name="config" type="dict">
+  Configuration dictionary for the graph.
+</ResponseField>
+
+<ResponseField name="schema" type="BaseModel">
+  Optional output schema for structured data extraction.
+</ResponseField>
+
+<ResponseField name="llm_model" type="object">
+  The configured language model instance.
+</ResponseField>
+
+<ResponseField name="input_key" type="str">
+  Either "csv" (single file) or "csv_dir" (directory) based on the source.
+</ResponseField>
+
+## Methods
+
+### run()
+
+Executes the CSV querying process and returns the answer.
+
+```python
+def run(self) -> str
+```
+
+<ResponseField name="return" type="str">
+  The extracted information from the CSV file(s), or "No answer found." if extraction fails.
+</ResponseField>
+
+## Basic Usage
+
+```python
+from scrapegraphai.graphs import CSVScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o",
+        "api_key": "your-api-key"
+    }
+}
+
+csv_scraper = CSVScraperGraph(
+    prompt="What are the top 5 products by revenue?",
+    source="./data/sales.csv",
+    config=graph_config
+)
+
+result = csv_scraper.run()
+print(result)
+```
+
+## Example CSV File
+
+```csv
+product_name,category,price,quantity_sold,revenue
+Laptop Pro,Electronics,1299.99,150,194998.50
+Wireless Mouse,Electronics,29.99,500,14995.00
+Desk Chair,Furniture,249.99,200,49998.00
+Notebook,Stationery,5.99,1000,5990.00
+Table Lamp,Furniture,79.99,300,23997.00
+```
+
+## Query Examples
+
+### Simple Aggregation
+
+```python
+csv_scraper = CSVScraperGraph(
+    prompt="What is the total revenue across all products?",
+    source="./data/sales.csv",
+    config=graph_config
+)
+
+result = csv_scraper.run()
+# Output: "The total revenue across all products is $289,978.50"
+```
+
+### Filtering and Sorting
+
+```python
+csv_scraper = CSVScraperGraph(
+    prompt="List all Electronics products sorted by price in descending order",
+    source="./data/sales.csv",
+    config=graph_config
+)
+
+result = csv_scraper.run()
+```
+
+### Statistical Analysis
+
+```python
+csv_scraper = CSVScraperGraph(
+    prompt="What is the average price per category?",
+    source="./data/sales.csv",
+    config=graph_config
+)
+
+result = csv_scraper.run()
+```
+
+### Comparison Queries
+
+```python
+csv_scraper = CSVScraperGraph(
+    prompt="Which category has the highest total revenue?",
+    source="./data/sales.csv",
+    config=graph_config
+)
+
+result = csv_scraper.run()
+```
+
+## Structured Output with Schema
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class TopProduct(BaseModel):
+    name: str = Field(description="Product name")
+    revenue: float = Field(description="Total revenue")
+    units_sold: int = Field(description="Number of units sold")
+
+class TopProducts(BaseModel):
+    products: List[TopProduct] = Field(description="List of top products")
+
+csv_scraper = CSVScraperGraph(
+    prompt="List the top 3 products by revenue with their details",
+    source="./data/sales.csv",
+    config=graph_config,
+    schema=TopProducts
+)
+
+result = csv_scraper.run()
+# Result is automatically validated and structured
+```
+
+## Multiple CSV Files
+
+```python
+# Directory structure:
+# csv_data/
+#   ├── sales_2023.csv
+#   ├── sales_2024.csv
+#   └── sales_2025.csv
+
+csv_scraper = CSVScraperGraph(
+    prompt="Compare total revenue across all years",
+    source="./csv_data/",  # Directory path
+    config=graph_config
+)
+
+result = csv_scraper.run()
+# Automatically processes all CSV files in the directory
+```
+
+## Graph Workflow
+
+The CSVScraperGraph uses a simple node pipeline:
+
+```
+FetchNode → GenerateAnswerCSVNode
+```
+
+1. **FetchNode**: Loads the CSV file(s) into memory
+2. **GenerateAnswerCSVNode**: Processes the CSV data and answers the query
+
+## Advanced Usage
+
+### With Additional Context
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "additional_info": """
+        The CSV contains sales data from our e-commerce platform.
+        Revenue is in USD. Focus on year-over-year growth trends.
+    """
+}
+
+csv_scraper = CSVScraperGraph(
+    prompt="Analyze sales trends and identify top performing categories",
+    source="./data/sales.csv",
+    config=config
+)
+```
+
+### Complex Analysis
+
+```python
+from pydantic import BaseModel
+from typing import List, Dict
+
+class CategoryAnalysis(BaseModel):
+    category: str
+    total_revenue: float
+    total_units: int
+    avg_price: float
+    product_count: int
+
+class SalesAnalysis(BaseModel):
+    categories: List[CategoryAnalysis]
+    insights: str
+
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "additional_info": "Provide detailed insights on category performance"
+}
+
+csv_scraper = CSVScraperGraph(
+    prompt="Perform a comprehensive analysis of sales by category including key insights",
+    source="./data/sales.csv",
+    config=config,
+    schema=SalesAnalysis
+)
+
+result = csv_scraper.run()
+```
+
+## Use Cases
+
+1. **Data Analysis**: Query CSV files using natural language
+2. **Report Generation**: Extract insights for reports
+3. **Business Intelligence**: Answer business questions from data
+4. **Data Exploration**: Explore datasets without coding
+5. **Automated Insights**: Generate automated data summaries
+
+## Accessing Results
+
+```python
+result = csv_scraper.run()
+
+# Get the answer
+print("Answer:", result)
+
+# Access full state
+final_state = csv_scraper.get_state()
+raw_data = final_state.get("doc")
+answer = final_state.get("answer")
+
+print(f"Processed CSV data: {len(str(raw_data))} characters")
+
+# Execution info
+exec_info = csv_scraper.get_execution_info()
+for node_info in exec_info:
+    print(f"{node_info['node_name']}: {node_info['exec_time']:.2f}s")
+    print(f"Tokens: {node_info['total_tokens']}")
+```
+
+## Example: Sales Dashboard
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class ProductPerformance(BaseModel):
+    product: str
+    revenue: float
+    units: int
+    rank: int
+
+class CategorySummary(BaseModel):
+    category: str
+    total_revenue: float
+    product_count: int
+
+class Dashboard(BaseModel):
+    top_products: List[ProductPerformance]
+    category_summary: List[CategorySummary]
+    total_revenue: float
+    insights: str
+
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "verbose": True
+}
+
+csv_scraper = CSVScraperGraph(
+    prompt="""Create a sales dashboard with:
+    1. Top 5 products by revenue
+    2. Summary by category
+    3. Total revenue
+    4. Key insights
+    """,
+    source="./data/sales.csv",
+    config=config,
+    schema=Dashboard
+)
+
+result = csv_scraper.run()
+print(result)
+```
+
+## Performance Considerations
+
+1. **File Size**: Large CSV files may take longer to process
+2. **LLM Context**: Very large CSVs may exceed LLM context limits
+3. **Multiple Files**: Processing multiple files increases execution time
+4. **Complex Queries**: More complex analysis requires more tokens
+
+## Error Handling
+
+```python
+try:
+    result = csv_scraper.run()
+    
+    if result == "No answer found.":
+        print("Failed to extract information from CSV")
+    else:
+        print(f"Success: {result}")
+        
+except FileNotFoundError:
+    print("CSV file not found")
+except Exception as e:
+    print(f"Error during processing: {e}")
+```
+
+## Tips for Better Results
+
+1. **Be specific**: Clear queries get better answers
+2. **Use schema**: Define schemas for structured output
+3. **Provide context**: Use `additional_info` for domain knowledge
+4. **Test queries**: Start with simple queries and iterate
+5. **Check data**: Ensure CSV is well-formatted
+
+## Comparison with Pandas
+
+| Feature | CSVScraperGraph | Pandas |
+|---------|----------------|--------|
+| **Input** | Natural language | Python code |
+| **Learning Curve** | Low | Medium |
+| **Flexibility** | High | Very High |
+| **Performance** | Depends on LLM | Fast |
+| **Complex Analysis** | Good | Excellent |
+| **Use Case** | Quick insights | Data processing |
+
+## Related Graphs
+
+- [CSVScraperMultiGraph](/api/graphs/multi-graphs#csvscrapermultigraph) - Process multiple CSV files separately
+- [JSONScraperGraph](/api/graphs/json-scraper-graph) - Query JSON files
+- [XMLScraperGraph](/api/graphs/xml-scraper-graph) - Query XML files

@@ -1,97 +1,109 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "ScrapeGraphAI Documentation"
+description: "AI-powered Python web scraping library using LLMs and graph-based pipelines"
 ---
 
-## Setting up
+<Note>
+  **You Only Scrape Once** — Let AI do the heavy lifting while you focus on extracting the data you need.
+</Note>
 
-Get your documentation site up and running in minutes.
+## What is ScrapeGraphAI?
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+ScrapeGraphAI is a Python web scraping library that uses Large Language Models (LLMs) and graph-based logic to create intelligent scraping pipelines. Instead of writing complex scraping logic, you simply describe what information you want to extract, and ScrapeGraphAI handles the rest.
 
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get started with ScrapeGraphAI in under 5 minutes
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Installation" icon="download" href="/installation">
+    Install ScrapeGraphAI and its dependencies
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Graph Types" icon="diagram-project" href="/graphs/overview">
+    Explore different graph types for various scraping scenarios
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="API Reference" icon="code" href="/api/graphs/smart-scraper-graph">
+    Complete API documentation for all graphs and nodes
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Key Features
 
-Everything you need to create world-class documentation.
+<CardGroup cols={2}>
+  <Card title="AI-Powered Extraction" icon="brain">
+    Use natural language to describe what data you want to extract from any website
+  </Card>
+  <Card title="20+ LLM Providers" icon="microchip">
+    Support for OpenAI, Ollama, Azure, Gemini, Groq, and many more LLM providers
+  </Card>
+  <Card title="Multiple Graph Types" icon="sitemap">
+    SmartScraper, SearchGraph, SpeechGraph, and more for different use cases
+  </Card>
+  <Card title="Document Scraping" icon="file">
+    Extract data from CSV, JSON, XML, HTML, and Markdown files
+  </Card>
+  <Card title="Multi-Page Scraping" icon="browsers">
+    Scrape multiple pages in parallel with optimized performance
+  </Card>
+  <Card title="Schema Validation" icon="check">
+    Define structured output schemas using Pydantic models
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## Popular Use Cases
 
-## Need inspiration?
+<AccordionGroup>
+  <Accordion title="E-commerce Data Extraction">
+    Extract product information, prices, reviews, and specifications from e-commerce websites without writing complex selectors.
+  </Accordion>
+  <Accordion title="Research & Data Collection">
+    Gather information from multiple sources, search results, and research papers for analysis and machine learning projects.
+  </Accordion>
+  <Accordion title="Competitive Intelligence">
+    Monitor competitor websites, pricing, and content changes automatically using AI-powered scraping.
+  </Accordion>
+  <Accordion title="Content Aggregation">
+    Collect and aggregate content from multiple websites and transform it into structured formats like JSON or CSV.
+  </Accordion>
+</AccordionGroup>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+## Why ScrapeGraphAI?
+
+Traditional web scraping requires you to:
+- Write complex CSS selectors or XPath expressions
+- Handle different website structures manually
+- Maintain brittle code that breaks when websites change
+- Parse and structure data yourself
+
+**ScrapeGraphAI simplifies this:**
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "ollama/llama3.2",
+        "temperature": 0,
+    },
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Extract the product name, price, and description",
+    source="https://example.com/product",
+    config=graph_config
+)
+
+result = smart_scraper.run()
+print(result)
+```
+
+<CardGroup cols={3}>
+  <Card title="Examples" icon="lightbulb" href="/examples/overview">
+    View real-world examples and use cases
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/llm-providers">
+    Configure LLM providers and advanced settings
+  </Card>
+  <Card title="Custom Graphs" icon="wrench" href="/advanced/custom-graphs">
+    Build custom scraping pipelines
+  </Card>
+</CardGroup>

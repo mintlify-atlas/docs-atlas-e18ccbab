@@ -1,0 +1,556 @@
+---
+title: 'Azure OpenAI Configuration'
+description: 'Configure ScrapeGraphAI with Azure OpenAI Service for enterprise-grade deployments'
+icon: 'microsoft'
+---
+
+## Overview
+
+Azure OpenAI Service provides the same powerful OpenAI models (GPT-4o, GPT-4o-mini) through Microsoft's Azure cloud platform, offering:
+
+- **Enterprise Security**: Azure's compliance and security features
+- **Private Network**: Deploy within your Azure virtual network
+- **SLA Guarantees**: 99.9% uptime commitment
+- **Data Residency**: Keep data within specific regions
+- **Cost Management**: Azure billing and cost controls
+
+Perfect for enterprise deployments requiring compliance, security, and governance.
+
+## Prerequisites
+
+<Steps>
+  <Step title="Azure Account">
+    Create an Azure account at [portal.azure.com](https://portal.azure.com)
+  </Step>
+  
+  <Step title="Create Azure OpenAI Resource">
+    1. Go to Azure Portal
+    2. Search for "Azure OpenAI"
+    3. Click "Create"
+    4. Select subscription, resource group, and region
+    5. Wait for deployment to complete
+  </Step>
+  
+  <Step title="Deploy a Model">
+    1. Go to your Azure OpenAI resource
+    2. Navigate to "Model deployments"
+    3. Click "Create new deployment"
+    4. Select model (e.g., `gpt-4o-mini`)
+    5. Give it a deployment name (e.g., `gpt-4o-mini-deployment`)
+  </Step>
+  
+  <Step title="Get Credentials">
+    From Azure OpenAI resource overview:
+    
+    - **Endpoint**: `https://YOUR-RESOURCE-NAME.openai.azure.com/`
+    - **API Key**: Found in "Keys and Endpoint" section
+    - **API Version**: e.g., `2024-02-15-preview`
+  </Step>
+  
+  <Step title="Install ScrapeGraphAI">
+    ```bash
+    pip install scrapegraphai
+    playwright install
+    ```
+  </Step>
+</Steps>
+
+## Basic Configuration
+
+```python
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
+        "model": "azure_openai/gpt-4o-mini",
+        "api_version": "2024-02-15-preview",
+        "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
+        "deployment_name": "gpt-4o-mini-deployment",
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+smart_scraper_graph = SmartScraperGraph(
+    prompt="Extract the main article content",
+    source="https://www.wired.com",
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+print(result)
+```
+
+## Environment Variables
+
+Create a `.env` file:
+
+```bash .env
+AZURE_OPENAI_API_KEY=your-azure-api-key
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini-deployment
+AZURE_OPENAI_API_VERSION=2024-02-15-preview
+```
+
+Then load in your code:
+
+```python
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
+        "model": "azure_openai/gpt-4o-mini",
+        "api_version": os.getenv("AZURE_OPENAI_API_VERSION"),
+        "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
+        "deployment_name": os.getenv("AZURE_OPENAI_DEPLOYMENT"),
+    },
+}
+```
+
+<Note>
+  Always use environment variables for credentials - never hardcode them in your source code.
+</Note>
+
+## Available Models
+
+<Tabs>
+  <Tab title="Recommended">
+    ### GPT-4o Mini (Best Value)
+    
+    ```python
+    "llm": {
+        "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
+        "model": "azure_openai/gpt-4o-mini",
+        "api_version": "2024-02-15-preview",
+        "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
+        "deployment_name": "gpt-4o-mini-deployment",
+    }
+    ```
+    
+    - **Context**: 128K tokens
+    - **Best for**: Most scraping tasks
+    - **Deployment**: Available in most regions
+
+    ### GPT-4o (Best Quality)
+    
+    ```python
+    "llm": {
+        "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
+        "model": "azure_openai/gpt-4o",
+        "api_version": "2024-02-15-preview",
+        "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
+        "deployment_name": "gpt-4o-deployment",
+    }
+    ```
+    
+    - **Context**: 128K tokens
+    - **Best for**: Complex scraping tasks
+  </Tab>
+  
+  <Tab title="All Models">
+    Models available on Azure OpenAI:
+
+    | Model | Context Window | Best For |
+    |-------|----------------|----------|
+    | `gpt-4o` | 128K | Best accuracy |
+    | `gpt-4o-mini` | 128K | Best value |
+    | `gpt-4-turbo` | 128K | Vision tasks |
+    | `gpt-4` | 8K | Legacy support |
+    | `gpt-3.5-turbo` | 16K | Cost-effective |
+    
+    <Warning>
+      Model availability varies by Azure region. Check [Azure OpenAI model availability](https://learn.microsoft.com/azure/ai-services/openai/concepts/models) for your region.
+    </Warning>
+  </Tab>
+</Tabs>
+
+## Configuration Options
+
+### Required Parameters
+
+```python
+graph_config = {
+    "llm": {
+        # Required
+        "api_key": "your-azure-api-key",
+        "model": "azure_openai/gpt-4o-mini",
+        "azure_endpoint": "https://your-resource.openai.azure.com/",
+        "deployment_name": "your-deployment-name",
+        "api_version": "2024-02-15-preview",
+    },
+}
+```
+
+<Warning>
+  The `deployment_name` is the name you gave when deploying the model in Azure Portal, NOT the model name itself.
+</Warning>
+
+### Optional Parameters
+
+```python
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
+        "model": "azure_openai/gpt-4o-mini",
+        "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
+        "deployment_name": "gpt-4o-mini",
+        "api_version": "2024-02-15-preview",
+        
+        # Optional
+        "temperature": 0,  # Deterministic output
+        "max_tokens": 4000,  # Limit response length
+        "top_p": 1.0,  # Nucleus sampling
+        "frequency_penalty": 0,  # Reduce repetition
+        "presence_penalty": 0,  # Encourage topic diversity
+    },
+}
+```
+
+## Authentication Methods
+
+<Tabs>
+  <Tab title="API Key (Recommended)">
+    Use API key authentication (simplest method):
+    
+    ```python
+    graph_config = {
+        "llm": {
+            "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
+            "model": "azure_openai/gpt-4o-mini",
+            "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
+            "deployment_name": "gpt-4o-mini",
+            "api_version": "2024-02-15-preview",
+        },
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Azure Active Directory">
+    Use Azure AD authentication for enhanced security:
+    
+    ```python
+    from azure.identity import DefaultAzureCredential
+    
+    credential = DefaultAzureCredential()
+    token = credential.get_token("https://cognitiveservices.azure.com/.default")
+    
+    graph_config = {
+        "llm": {
+            "api_key": token.token,  # Use token instead of API key
+            "model": "azure_openai/gpt-4o-mini",
+            "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
+            "deployment_name": "gpt-4o-mini",
+            "api_version": "2024-02-15-preview",
+        },
+    }
+    ```
+    
+    <Info>
+      Requires `azure-identity` package: `pip install azure-identity`
+    </Info>
+  </Tab>
+  
+  <Tab title="Managed Identity">
+    For Azure VMs and services with managed identity:
+    
+    ```python
+    from azure.identity import ManagedIdentityCredential
+    
+    credential = ManagedIdentityCredential()
+    token = credential.get_token("https://cognitiveservices.azure.com/.default")
+    
+    graph_config = {
+        "llm": {
+            "api_key": token.token,
+            "model": "azure_openai/gpt-4o-mini",
+            "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
+            "deployment_name": "gpt-4o-mini",
+            "api_version": "2024-02-15-preview",
+        },
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Complete Examples
+
+<CodeGroup>
+```python Basic Scraping
+import os
+import json
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+from scrapegraphai.utils import prettify_exec_info
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
+        "model": "azure_openai/gpt-4o-mini",
+        "api_version": "2024-02-15-preview",
+        "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
+        "deployment_name": os.getenv("AZURE_OPENAI_DEPLOYMENT"),
+        "temperature": 0,
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Extract the main article with title and author",
+    source="https://www.wired.com",
+    config=graph_config,
+)
+
+result = smart_scraper.run()
+print(json.dumps(result, indent=4))
+
+graph_exec_info = smart_scraper.get_execution_info()
+print(prettify_exec_info(graph_exec_info))
+```
+
+```python Multi-Region Deployment
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+# Primary region
+primary_config = {
+    "llm": {
+        "api_key": os.getenv("AZURE_OPENAI_API_KEY_US"),
+        "model": "azure_openai/gpt-4o-mini",
+        "api_version": "2024-02-15-preview",
+        "azure_endpoint": "https://resource-us.openai.azure.com/",
+        "deployment_name": "gpt-4o-mini",
+    },
+}
+
+# Fallback region
+fallback_config = {
+    "llm": {
+        "api_key": os.getenv("AZURE_OPENAI_API_KEY_EU"),
+        "model": "azure_openai/gpt-4o-mini",
+        "api_version": "2024-02-15-preview",
+        "azure_endpoint": "https://resource-eu.openai.azure.com/",
+        "deployment_name": "gpt-4o-mini",
+    },
+}
+
+try:
+    scraper = SmartScraperGraph(
+        prompt="Extract content",
+        source="https://example.com",
+        config=primary_config,
+    )
+    result = scraper.run()
+except Exception as e:
+    print(f"Primary region failed: {e}")
+    print("Trying fallback region...")
+    
+    scraper = SmartScraperGraph(
+        prompt="Extract content",
+        source="https://example.com",
+        config=fallback_config,
+    )
+    result = scraper.run()
+
+print(result)
+```
+
+```python With Azure AD Auth
+import os
+from azure.identity import DefaultAzureCredential
+from scrapegraphai.graphs import SmartScraperGraph
+
+# Get Azure AD token
+credential = DefaultAzureCredential()
+token = credential.get_token("https://cognitiveservices.azure.com/.default")
+
+graph_config = {
+    "llm": {
+        "api_key": token.token,
+        "model": "azure_openai/gpt-4o-mini",
+        "api_version": "2024-02-15-preview",
+        "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
+        "deployment_name": "gpt-4o-mini",
+    },
+    "verbose": True,
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract product information",
+    source="https://example.com/product",
+    config=graph_config,
+)
+
+result = scraper.run()
+print(result)
+```
+
+```python Private Endpoint
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+# Using Azure Private Endpoint
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
+        "model": "azure_openai/gpt-4o-mini",
+        "api_version": "2024-02-15-preview",
+        # Private endpoint URL
+        "azure_endpoint": "https://your-resource.privatelink.openai.azure.com/",
+        "deployment_name": "gpt-4o-mini",
+    },
+    "verbose": True,
+}
+
+scraper = SmartScraperGraph(
+    prompt="Scrape internal company data",
+    source="https://internal.company.com",
+    config=graph_config,
+)
+
+result = scraper.run()
+print(result)
+```
+</CodeGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Invalid Deployment Name">
+    **Error**: `DeploymentNotFound: The API deployment for this resource does not exist`
+    
+    **Solution**: 
+    1. Check deployment name in Azure Portal
+    2. Ensure it matches exactly (case-sensitive)
+    3. Verify deployment is in "Succeeded" state
+    
+    ```python
+    # Correct
+    "deployment_name": "gpt-4o-mini-deployment"  # As shown in Portal
+    
+    # Wrong
+    "deployment_name": "gpt-4o-mini"  # Model name, not deployment name
+    ```
+  </Accordion>
+  
+  <Accordion title="Wrong API Version">
+    **Error**: `InvalidApiVersion: The API version is not supported`
+    
+    **Solution**: Use a valid API version:
+    ```python
+    "api_version": "2024-02-15-preview"  # Current stable version
+    ```
+    
+    Check [Azure OpenAI API versions](https://learn.microsoft.com/azure/ai-services/openai/reference) for latest.
+  </Accordion>
+  
+  <Accordion title="Rate Limit Exceeded">
+    **Error**: `RateLimitError: Requests to the API are being rate limited`
+    
+    **Solution**: 
+    1. Increase quota in Azure Portal
+    2. Add retry logic with backoff
+    3. Distribute load across multiple deployments
+    
+    ```python
+    import time
+    from tenacity import retry, wait_exponential, stop_after_attempt
+    
+    @retry(wait=wait_exponential(min=1, max=60), stop=stop_after_attempt(5))
+    def scrape_with_retry(url):
+        return scraper.run()
+    ```
+  </Accordion>
+  
+  <Accordion title="Authentication Failed">
+    **Error**: `AuthenticationError: Access denied`
+    
+    **Solution**:
+    1. Verify API key is correct
+    2. Check key hasn't expired
+    3. Ensure resource is not paused/deleted
+    4. Verify network access (if using Private Endpoint)
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Key Vault" icon="key">
+    Store credentials in Azure Key Vault:
+    ```python
+    from azure.keyvault.secrets import SecretClient
+    from azure.identity import DefaultAzureCredential
+    
+    client = SecretClient(
+        vault_url="https://myvault.vault.azure.net/",
+        credential=DefaultAzureCredential()
+    )
+    
+    api_key = client.get_secret("azure-openai-key").value
+    ```
+  </Card>
+  
+  <Card title="Multi-Region Deployment" icon="globe">
+    Deploy to multiple regions for high availability:
+    - Primary: East US
+    - Failover: West Europe
+    - Backup: Southeast Asia
+  </Card>
+  
+  <Card title="Monitor Usage" icon="chart-line">
+    Use Azure Monitor to track:
+    - Token usage
+    - Request latency
+    - Error rates
+    - Cost trends
+  </Card>
+  
+  <Card title="Cost Management" icon="dollar-sign">
+    Implement cost controls:
+    - Set budget alerts
+    - Use gpt-4o-mini for most tasks
+    - Cache common responses
+    - Monitor token usage
+  </Card>
+</CardGroup>
+
+## Regional Considerations
+
+<Info>
+  Model availability varies by Azure region. Popular regions for Azure OpenAI:
+  
+  - **East US**: Best availability, all models
+  - **West Europe**: GDPR compliance
+  - **UK South**: UK data residency
+  - **Australia East**: APAC customers
+  - **Canada Central**: Canadian data residency
+</Info>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Advanced Configuration" icon="sliders" href="/configuration/advanced">
+    Learn about proxy rotation and browser settings
+  </Card>
+  <Card title="OpenAI" icon="openai" href="/configuration/openai">
+    Compare with standard OpenAI API
+  </Card>
+</CardGroup>

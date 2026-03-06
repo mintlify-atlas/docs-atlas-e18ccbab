@@ -1,0 +1,124 @@
+---
+title: Examples Overview
+description: Explore practical examples of ScrapeGraphAI in action
+icon: code
+---
+
+Welcome to the ScrapeGraphAI examples collection. These hands-on examples demonstrate real-world use cases and help you get started quickly with the library.
+
+## What You'll Learn
+
+Through these examples, you'll discover how to:
+
+- Extract data from websites using natural language prompts
+- Scrape multiple pages simultaneously
+- Process local documents (CSV, PDF, text)
+- Integrate web search capabilities
+- Define custom schemas for structured output
+- Handle various data formats and sources
+
+## Available Examples
+
+<CardGroup cols={2}>
+  <Card title="Basic Scraping" icon="globe" href="/examples/basic-scraping">
+    Get started with simple web scraping using SmartScraperGraph
+  </Card>
+  
+  <Card title="Multi-Page Scraping" icon="layer-group" href="/examples/multi-page">
+    Learn to scrape multiple URLs in a single operation
+  </Card>
+  
+  <Card title="Local Documents" icon="file" href="/examples/local-documents">
+    Extract data from CSV files and text documents
+  </Card>
+  
+  <Card title="Search Integration" icon="magnifying-glass" href="/examples/search-integration">
+    Combine web search with intelligent scraping
+  </Card>
+  
+  <Card title="Custom Schemas" icon="diagram-project" href="/examples/custom-schemas">
+    Define Pydantic schemas for structured, validated output
+  </Card>
+</CardGroup>
+
+## Example Categories
+
+### Web Scraping
+Extract data from websites using AI-powered natural language queries. Perfect for news sites, e-commerce, social media, and more.
+
+### Document Processing
+Process local files including CSV, JSON, XML, and PDF documents. Extract structured information from unstructured text.
+
+### Search & Discovery
+Combine search engines with scraping to find and extract information across the web automatically.
+
+### Advanced Patterns
+Learn advanced techniques like custom schemas, multi-source scraping, and data validation.
+
+## Prerequisites
+
+Before running these examples, make sure you have:
+
+1. **Installed ScrapeGraphAI**
+   ```bash
+   pip install scrapegraphai
+   ```
+
+2. **Set up API keys**
+   Create a `.env` file with your API credentials:
+   ```bash
+   OPENAI_API_KEY=your_key_here
+   ```
+
+3. **Installed dependencies**
+   ```bash
+   pip install python-dotenv playwright
+   playwright install
+   ```
+
+## Code Structure
+
+All examples follow a consistent pattern:
+
+<Steps>
+  <Step title="Import dependencies">
+    Load required modules and environment variables
+  </Step>
+  
+  <Step title="Configure the graph">
+    Define LLM settings and scraping parameters
+  </Step>
+  
+  <Step title="Create graph instance">
+    Initialize the appropriate graph type with your prompt and source
+  </Step>
+  
+  <Step title="Run and process">
+    Execute the graph and handle the results
+  </Step>
+</Steps>
+
+## Running the Examples
+
+Each example is self-contained and can be run directly:
+
+```bash
+python example_name.py
+```
+
+<Note>
+Make sure your API keys are properly configured in your `.env` file before running any examples.
+</Note>
+
+## Need Help?
+
+If you encounter issues:
+
+- Check the [Core Concepts](/concepts/graphs) documentation
+- Review the [Configuration Guide](/configuration/llm-providers)
+- Visit our [GitHub repository](https://github.com/VinciGit00/Scrapegraph-ai) for more examples
+- Join our community for support
+
+## Next Steps
+
+Start with [Basic Scraping](/examples/basic-scraping) to learn the fundamentals, then explore more advanced examples as you build confidence with the library.

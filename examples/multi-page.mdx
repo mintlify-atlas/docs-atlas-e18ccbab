@@ -1,0 +1,321 @@
+---
+title: Multi-Page Scraping
+description: Extract data from multiple URLs simultaneously using SmartScraperMultiGraph
+icon: layer-group
+---
+
+The `SmartScraperMultiGraph` allows you to scrape multiple webpages in a single operation, perfect for gathering data from related pages or different sections of a website.
+
+## Overview
+
+This example demonstrates how to:
+- Scrape multiple URLs with one graph instance
+- Process results from different sources
+- Aggregate data from multiple pages
+- Handle different page structures
+
+## Complete Example
+
+Here's a working example that scrapes information from multiple portfolio pages:
+
+```python
+import json
+import os
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperMultiGraph
+
+load_dotenv()
+
+# Define the configuration for the graph
+openai_key = os.getenv("OPENAI_APIKEY")
+
+graph_config = {
+    "llm": {
+        "api_key": openai_key,
+        "model": "openai/gpt-4o",
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+# Create the SmartScraperMultiGraph instance and run it
+multiple_search_graph = SmartScraperMultiGraph(
+    prompt="Who is Marco Perini?",
+    source=[
+        "https://perinim.github.io/",
+        "https://perinim.github.io/cv/"
+    ],
+    schema=None,
+    config=graph_config,
+)
+
+result = multiple_search_graph.run()
+print(json.dumps(result, indent=4))
+```
+
+## Step-by-Step Breakdown
+
+<Steps>
+  <Step title="Import dependencies">
+    ```python
+    import json
+    import os
+    from dotenv import load_dotenv
+    from scrapegraphai.graphs import SmartScraperMultiGraph
+    
+    load_dotenv()
+    ```
+    
+    Import `SmartScraperMultiGraph` for multi-page scraping capabilities.
+  </Step>
+  
+  <Step title="Configure the graph">
+    ```python
+    graph_config = {
+        "llm": {
+            "api_key": os.getenv("OPENAI_APIKEY"),
+            "model": "openai/gpt-4o",
+        },
+        "verbose": True,
+        "headless": False,
+    }
+    ```
+    
+    Use GPT-4o for better understanding across multiple page contexts.
+  </Step>
+  
+  <Step title="Define multiple sources">
+    ```python
+    multiple_search_graph = SmartScraperMultiGraph(
+        prompt="Who is Marco Perini?",
+        source=[
+            "https://perinim.github.io/",
+            "https://perinim.github.io/cv/"
+        ],
+        schema=None,
+        config=graph_config,
+    )
+    ```
+    
+    Pass a **list of URLs** as the source parameter. The graph will scrape all pages and aggregate the results.
+  </Step>
+  
+  <Step title="Run and process results">
+    ```python
+    result = multiple_search_graph.run()
+    print(json.dumps(result, indent=4))
+    ```
+    
+    Results from all pages are combined into a single response.
+  </Step>
+</Steps>
+
+## Multi-Graph Variants
+
+<Tabs>
+  <Tab title="Standard Multi">
+    ```python
+    from scrapegraphai.graphs import SmartScraperMultiGraph
+    
+    # Scrapes all pages and aggregates results
+    graph = SmartScraperMultiGraph(
+        prompt="Extract contact information",
+        source=[
+            "https://example.com/about",
+            "https://example.com/contact",
+            "https://example.com/team"
+        ],
+        config=graph_config,
+    )
+    ```
+    
+    Standard multi-page scraping with result aggregation.
+  </Tab>
+  
+  <Tab title="Multi Concat">
+    ```python
+    from scrapegraphai.graphs import SmartScraperMultiConcatGraph
+    
+    # Concatenates all page content before processing
+    graph = SmartScraperMultiConcatGraph(
+        prompt="Find all product mentions",
+        source=[
+            "https://example.com/products/page1",
+            "https://example.com/products/page2",
+            "https://example.com/products/page3"
+        ],
+        config=graph_config,
+    )
+    ```
+    
+    Combines all HTML content into one document before extraction.
+  </Tab>
+  
+  <Tab title="Multi Lite">
+    ```python
+    from scrapegraphai.graphs import SmartScraperMultiLiteGraph
+    
+    # Lightweight version for faster processing
+    graph = SmartScraperMultiLiteGraph(
+        prompt="Get page titles",
+        source=[
+            "https://example.com/page1",
+            "https://example.com/page2",
+            "https://example.com/page3"
+        ],
+        config=graph_config,
+    )
+    ```
+    
+    Optimized for speed with reduced token usage.
+  </Tab>
+</Tabs>
+
+## Expected Output
+
+The results are organized by source URL:
+
+```json
+[
+    {
+        "source": "https://perinim.github.io/",
+        "data": {
+            "name": "Marco Perini",
+            "role": "Software Engineer",
+            "bio": "Passionate developer with experience in..."
+        }
+    },
+    {
+        "source": "https://perinim.github.io/cv/",
+        "data": {
+            "experience": [
+                {
+                    "company": "Tech Corp",
+                    "position": "Senior Developer",
+                    "duration": "2020-Present"
+                }
+            ],
+            "skills": ["Python", "JavaScript", "AI"]
+        }
+    }
+]
+```
+
+## Common Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Product Catalogs" icon="grid">
+    Scrape multiple product pages to build a complete catalog
+  </Card>
+  
+  <Card title="News Aggregation" icon="newspaper">
+    Collect articles from different sections or categories
+  </Card>
+  
+  <Card title="Competitor Analysis" icon="chart-line">
+    Gather data from multiple competitor websites
+  </Card>
+  
+  <Card title="Portfolio Scraping" icon="briefcase">
+    Extract information from various profile or portfolio pages
+  </Card>
+</CardGroup>
+
+## Performance Considerations
+
+<Note>
+**Parallel Processing**: Pages are scraped concurrently for better performance.
+</Note>
+
+<Note>
+**Token Usage**: Multi-page scraping consumes more tokens. Consider using the Lite variant for simple tasks.
+</Note>
+
+<Note>
+**Rate Limiting**: Be mindful of rate limits when scraping many pages. Add delays if needed.
+</Note>
+
+## Advanced Example: Multi-Page with Schema
+
+```python
+from typing import List
+from pydantic import BaseModel, Field
+
+class ContactInfo(BaseModel):
+    name: str = Field(description="Person's name")
+    email: str = Field(description="Email address")
+    role: str = Field(description="Job title or role")
+
+class TeamMembers(BaseModel):
+    members: List[ContactInfo]
+
+multi_graph = SmartScraperMultiGraph(
+    prompt="Extract all team member information",
+    source=[
+        "https://company.com/team/engineering",
+        "https://company.com/team/design",
+        "https://company.com/team/marketing"
+    ],
+    schema=TeamMembers,
+    config=graph_config,
+)
+
+result = multi_graph.run()
+```
+
+This combines multi-page scraping with schema validation for structured output.
+
+## Handling Different Page Structures
+
+The AI automatically adapts to different page layouts:
+
+```python
+multi_graph = SmartScraperMultiGraph(
+    prompt="Extract pricing information",
+    source=[
+        "https://competitor1.com/pricing",  # Table layout
+        "https://competitor2.com/plans",    # Card layout
+        "https://competitor3.com/pricing"   # List layout
+    ],
+    config=graph_config,
+)
+```
+
+The graph understands your prompt and extracts relevant data regardless of HTML structure.
+
+## Error Handling
+
+```python
+try:
+    result = multiple_search_graph.run()
+    
+    # Check for partial failures
+    for page_result in result:
+        if "error" in page_result:
+            print(f"Failed to scrape {page_result['source']}: {page_result['error']}")
+        else:
+            print(f"Successfully scraped {page_result['source']}")
+            
+except Exception as e:
+    print(f"Scraping failed: {e}")
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Schemas" icon="diagram-project" href="/examples/custom-schemas">
+    Add structure to your multi-page results
+  </Card>
+  
+  <Card title="Local Documents" icon="file" href="/examples/local-documents">
+    Process multiple local files
+  </Card>
+</CardGroup>
+
+## Tips for Multi-Page Scraping
+
+1. **Group related pages**: Scrape pages with similar content together for better context
+2. **Use specific prompts**: Be clear about what information should be extracted from all pages
+3. **Monitor performance**: Use `get_execution_info()` to track time and token usage
+4. **Handle failures gracefully**: Some pages might fail; ensure your code handles partial results
+5. **Consider pagination**: For paginated content, generate URLs programmatically

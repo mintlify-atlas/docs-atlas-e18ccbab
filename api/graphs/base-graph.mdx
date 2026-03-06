@@ -1,0 +1,254 @@
+---
+title: BaseGraph
+description: Core graph execution engine that manages node workflows
+icon: "diagram-project"
+---
+
+## Overview
+
+`BaseGraph` manages the execution flow of a graph composed of interconnected nodes. It handles node traversal, state management, execution tracking, and supports both standard and Burr-based execution modes.
+
+## Class Signature
+
+```python
+class BaseGraph:
+    def __init__(
+        self,
+        nodes: list,
+        edges: list,
+        entry_point: str,
+        use_burr: bool = False,
+        burr_config: dict = None,
+        graph_name: str = "Custom",
+    )
+```
+
+## Constructor Parameters
+
+<ParamField path="nodes" type="list" required>
+  A list of node instances that will be part of the graph. Each node should be an instance of a BaseNode subclass.
+</ParamField>
+
+<ParamField path="edges" type="list" required>
+  A list of tuples representing directed edges in the graph. Each tuple contains a pair `(from_node, to_node)` defining the workflow connections.
+</ParamField>
+
+<ParamField path="entry_point" type="BaseNode" required>
+  The node instance that represents the entry point of the graph execution.
+</ParamField>
+
+<ParamField path="use_burr" type="bool" default="False">
+  Flag to enable Burr-based execution for enhanced workflow tracking and state management.
+</ParamField>
+
+<ParamField path="burr_config" type="dict" default="None">
+  Configuration dictionary for Burr integration. Should include `app_instance_id` and other Burr-specific settings.
+</ParamField>
+
+<ParamField path="graph_name" type="str" default="Custom">
+  Name identifier for the graph, used in logging and telemetry.
+</ParamField>
+
+## Attributes
+
+<ResponseField name="nodes" type="list">
+  List of all node instances in the graph.
+</ResponseField>
+
+<ResponseField name="edges" type="dict">
+  Dictionary mapping each node's name to its successor node name.
+</ResponseField>
+
+<ResponseField name="entry_point" type="str">
+  The name of the entry point node from which graph execution begins.
+</ResponseField>
+
+<ResponseField name="graph_name" type="str">
+  Name of the graph for identification purposes.
+</ResponseField>
+
+<ResponseField name="initial_state" type="dict">
+  The initial state passed to the graph during execution.
+</ResponseField>
+
+<ResponseField name="callback_manager" type="CustomLLMCallbackManager">
+  Manages callbacks for LLM interactions and tracks token usage.
+</ResponseField>
+
+## Methods
+
+### execute()
+
+Executes the graph by traversing nodes starting from the entry point.
+
+```python
+def execute(self, initial_state: dict) -> Tuple[dict, list]
+```
+
+<ParamField path="initial_state" type="dict" required>
+  The initial state dictionary to pass to the entry point node. Typically contains `user_prompt` and source data.
+</ParamField>
+
+<ResponseField name="return" type="Tuple[dict, list]">
+  Returns a tuple containing:
+  - `state` (dict): The final state after graph execution
+  - `exec_info` (list): List of execution information for each node including tokens, costs, and execution time
+</ResponseField>
+
+### append_node()
+
+Adds a new node to the end of the graph and connects it to the last existing node.
+
+```python
+def append_node(self, node: BaseNode) -> None
+```
+
+<ParamField path="node" type="BaseNode" required>
+  The node instance to add to the graph. Must have a unique `node_name` that doesn't already exist in the graph.
+</ParamField>
+
+**Raises:**
+- `ValueError`: If a node with the same name already exists in the graph.
+
+## Usage Example
+
+```python
+from scrapegraphai.graphs import BaseGraph
+from scrapegraphai.nodes import FetchNode, ParseNode, GenerateAnswerNode
+
+# Create nodes
+fetch_node = FetchNode(
+    input="url",
+    output=["doc"]
+)
+
+parse_node = ParseNode(
+    input="doc",
+    output=["parsed_doc"],
+    node_config={"chunk_size": 4096}
+)
+
+generate_answer_node = GenerateAnswerNode(
+    input="user_prompt & parsed_doc",
+    output=["answer"],
+    node_config={"llm_model": llm_model}
+)
+
+# Create graph
+graph = BaseGraph(
+    nodes=[
+        fetch_node,
+        parse_node,
+        generate_answer_node,
+    ],
+    edges=[
+        (fetch_node, parse_node),
+        (parse_node, generate_answer_node)
+    ],
+    entry_point=fetch_node,
+    graph_name="MyCustomGraph"
+)
+
+# Execute graph
+initial_state = {
+    "user_prompt": "Extract the main content",
+    "url": "https://example.com"
+}
+
+final_state, execution_info = graph.execute(initial_state)
+print(final_state["answer"])
+```
+
+## Burr Integration Example
+
+```python
+# Enable Burr for workflow tracking
+graph = BaseGraph(
+    nodes=[fetch_node, parse_node, generate_answer_node],
+    edges=[
+        (fetch_node, parse_node),
+        (parse_node, generate_answer_node)
+    ],
+    entry_point=fetch_node,
+    use_burr=True,
+    burr_config={
+        "app_instance_id": "my-scraping-workflow",
+        "project_name": "web-scraper"
+    }
+)
+
+final_state, exec_info = graph.execute(initial_state)
+```
+
+## Execution Information
+
+The `exec_info` list returned by `execute()` contains detailed metrics for each node:
+
+```python
+[
+    {
+        "node_name": "FetchNode",
+        "total_tokens": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "successful_requests": 0,
+        "total_cost_USD": 0.0,
+        "exec_time": 1.234
+    },
+    {
+        "node_name": "GenerateAnswerNode",
+        "total_tokens": 1500,
+        "prompt_tokens": 1000,
+        "completion_tokens": 500,
+        "successful_requests": 1,
+        "total_cost_USD": 0.025,
+        "exec_time": 3.456
+    },
+    {
+        "node_name": "TOTAL RESULT",
+        "total_tokens": 1500,
+        "prompt_tokens": 1000,
+        "completion_tokens": 500,
+        "successful_requests": 1,
+        "total_cost_USD": 0.025,
+        "exec_time": 4.690
+    }
+]
+```
+
+## Conditional Nodes
+
+`BaseGraph` supports conditional branching with `ConditionalNode`:
+
+```python
+from scrapegraphai.nodes import ConditionalNode
+
+cond_node = ConditionalNode(
+    input="answer",
+    output=["answer"],
+    node_config={
+        "key_name": "answer",
+        "condition": 'not answer or answer=="NA"'
+    }
+)
+
+# Conditional nodes require exactly two outgoing edges
+graph = BaseGraph(
+    nodes=[fetch_node, generate_answer_node, cond_node, regen_node],
+    edges=[
+        (fetch_node, generate_answer_node),
+        (generate_answer_node, cond_node),
+        (cond_node, regen_node),  # true branch
+        (cond_node, None)          # false branch (end)
+    ],
+    entry_point=fetch_node
+)
+```
+
+## Notes
+
+- The entry point node should typically be the first node in the nodes list (a warning is issued otherwise)
+- Node names must be unique within the graph
+- The graph automatically handles state propagation between nodes
+- Execution info includes token counts and costs for LLM-based nodes
+- Telemetry data is automatically logged for monitoring and debugging

@@ -1,122 +1,156 @@
 {
   "$schema": "https://mintlify.com/docs.json",
+  "name": "ScrapeGraphAI",
   "theme": "mint",
-  "name": "Mint Starter Kit",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#949c9c",
+    "light": "#3a3654",
+    "dark": "#ccc7de"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "https://media.brand.dev/181b8368-0931-4200-9ae2-a482d42a54fb.png",
+  "logo": {
+    "light": "https://media.brand.dev/93e3f5e0-bd3b-45fc-bc20-088afbac737e.png",
+    "dark": "https://media.brand.dev/93e3f5e0-bd3b-45fc-bc20-088afbac737e.png"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/ScrapeGraphAI/Scrapegraph-ai"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/ScrapeGraphAI/Scrapegraph-ai",
+      "discord": "https://discord.gg/gkxQDAjfeX",
+      "twitter": "https://twitter.com/scrapegraphai",
+      "linkedin": "https://www.linkedin.com/company/scrapegraphai/"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/graphs",
+              "concepts/nodes",
+              "concepts/configuration",
+              "concepts/schemas"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Graphs",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "graphs/overview",
+              "graphs/smart-scraper",
+              "graphs/search-graph",
+              "graphs/speech-graph",
+              "graphs/script-creator",
+              "graphs/document-scraper",
+              "graphs/multi-scraper",
+              "graphs/depth-search",
+              "graphs/omni-scraper"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Configuration",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "configuration/llm-providers",
+              "configuration/openai",
+              "configuration/ollama",
+              "configuration/azure",
+              "configuration/gemini",
+              "configuration/groq",
+              "configuration/advanced"
+            ]
+          },
+          {
+            "group": "Examples",
+            "pages": [
+              "examples/overview",
+              "examples/basic-scraping",
+              "examples/multi-page",
+              "examples/local-documents",
+              "examples/search-integration",
+              "examples/custom-schemas"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/custom-graphs",
+              "advanced/custom-nodes",
+              "advanced/integrations",
+              "advanced/burr-integration",
+              "advanced/telemetry",
+              "advanced/troubleshooting"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Graphs",
             "pages": [
-              "api-reference/introduction"
+              "api/graphs/base-graph",
+              "api/graphs/smart-scraper-graph",
+              "api/graphs/search-graph",
+              "api/graphs/speech-graph",
+              "api/graphs/script-creator-graph",
+              "api/graphs/csv-scraper-graph",
+              "api/graphs/json-scraper-graph",
+              "api/graphs/xml-scraper-graph",
+              "api/graphs/document-scraper-graph",
+              "api/graphs/omni-scraper-graph",
+              "api/graphs/depth-search-graph",
+              "api/graphs/multi-graphs"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Nodes",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/nodes/overview",
+              "api/nodes/fetch-node",
+              "api/nodes/parse-node",
+              "api/nodes/generate-answer-node",
+              "api/nodes/search-node",
+              "api/nodes/conditional-node",
+              "api/nodes/reasoning-node"
+            ]
+          },
+          {
+            "group": "Models",
+            "pages": [
+              "api/models/overview",
+              "api/models/openai",
+              "api/models/deepseek",
+              "api/models/nvidia",
+              "api/models/xai"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api/utils/logging",
+              "api/utils/prettify",
+              "api/utils/data-export",
+              "api/utils/proxy-rotation"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

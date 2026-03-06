@@ -1,0 +1,381 @@
+---
+title: "ParseNode"
+description: "Parse HTML content and extract URLs from documents"
+---
+
+## Overview
+
+The `ParseNode` is responsible for parsing HTML content from documents, converting it to text, extracting URLs (links and images), and splitting the content into chunks for further processing.
+
+## Class Signature
+
+```python
+class ParseNode(BaseNode):
+    def __init__(
+        self,
+        input: str,
+        output: List[str],
+        node_config: Optional[dict] = None,
+        node_name: str = "ParseNode",
+    )
+```
+
+Source: `scrapegraphai/nodes/parse_node.py:17`
+
+## Parameters
+
+<ParamField path="input" type="str" required>
+  Boolean expression defining the input keys needed from the state. Common patterns:
+  - `"document"` - Only document parsing
+  - `"document & url"` - Document parsing with URL extraction
+</ParamField>
+
+<ParamField path="output" type="List[str]" required>
+  List of output keys to be updated in the state. Examples:
+  - `["parsed_doc"]` - Only parsed chunks
+  - `["parsed_doc", "link_urls", "img_urls"]` - Parsed content with URLs
+</ParamField>
+
+<ParamField path="node_config" type="dict">
+  Configuration dictionary with the following options:
+
+  <Expandable title="Configuration Options">
+    <ParamField path="verbose" type="bool" default="False">
+      Whether to show print statements during execution
+    </ParamField>
+
+    <ParamField path="parse_html" type="bool" default="True">
+      Whether to parse HTML content using Html2TextTransformer
+    </ParamField>
+
+    <ParamField path="parse_urls" type="bool" default="False">
+      Whether to extract URLs (links and images) from the content
+    </ParamField>
+
+    <ParamField path="llm_model" type="object" required>
+      Language model instance (used for determining chunk size)
+    </ParamField>
+
+    <ParamField path="chunk_size" type="int" required>
+      Maximum size of text chunks in tokens/characters
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="node_name" type="str" default="ParseNode">
+  The unique identifier name for the node
+</ParamField>
+
+## State Keys
+
+### Input State
+
+<ParamField path="document" type="List[Document]">
+  List of LangChain Document objects containing HTML or text content
+</ParamField>
+
+<ParamField path="url" type="str">
+  Source URL (required only if `parse_urls=True` for resolving relative URLs)
+</ParamField>
+
+### Output State
+
+<ParamField path="parsed_doc" type="List[str]">
+  List of text chunks after parsing and splitting the document
+</ParamField>
+
+<ParamField path="link_urls" type="List[str]">
+  List of extracted link URLs (only if `parse_urls=True`)
+</ParamField>
+
+<ParamField path="img_urls" type="List[str]">
+  List of extracted image URLs (only if `parse_urls=True`)
+</ParamField>
+
+## Methods
+
+### execute(state: dict) -> dict
+
+Executes the node's logic to parse the HTML document content and split it into chunks.
+
+```python
+def execute(self, state: dict) -> dict:
+    """
+    Executes the node's logic to parse the HTML document content and split it into chunks.
+    
+    Args:
+        state (dict): The current state of the graph.
+    
+    Returns:
+        dict: The updated state with the output key containing the parsed content chunks.
+    """
+```
+
+Source: `scrapegraphai/nodes/parse_node.py:62`
+
+**Returns:** Updated state dictionary with parsed chunks and optionally extracted URLs
+
+### _extract_urls(text: str, source: str) -> Tuple[List[str], List[str]]
+
+Extracts URLs from the given text, separating links and images.
+
+```python
+def _extract_urls(self, text: str, source: str) -> Tuple[List[str], List[str]]:
+    """
+    Extracts URLs from the given text.
+    
+    Args:
+        text (str): The text to extract URLs from.
+        source (str): Base URL for resolving relative URLs.
+    
+    Returns:
+        Tuple[List[str], List[str]]: A tuple containing link URLs and image URLs.
+    """
+```
+
+Source: `scrapegraphai/nodes/parse_node.py:131`
+
+### _clean_urls(urls: List[str]) -> List[str]
+
+Cleans and normalizes extracted URLs by removing markdown artifacts.
+
+```python
+def _clean_urls(self, urls: List[str]) -> List[str]:
+    """Cleans the URLs extracted from the text."""
+```
+
+Source: `scrapegraphai/nodes/parse_node.py:179`
+
+### _is_valid_url(url: str) -> bool
+
+Static method to check if a URL format is valid.
+
+```python
+@staticmethod
+def _is_valid_url(url: str) -> bool:
+    """Checks if the URL format is valid."""
+```
+
+Source: `scrapegraphai/nodes/parse_node.py:206`
+
+## Usage Examples
+
+### Basic HTML Parsing
+
+```python
+from scrapegraphai.nodes import ParseNode
+from langchain_openai import ChatOpenAI
+
+# Create parse node
+parse_node = ParseNode(
+    input="document",
+    output=["parsed_doc"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "chunk_size": 4096,
+        "parse_html": True,
+        "verbose": False
+    }
+)
+
+# Execute node
+state = {
+    "document": [Document(page_content="<html>...</html>")]
+}
+updated_state = parse_node.execute(state)
+
+print(updated_state["parsed_doc"])
+# Output: ["chunk1", "chunk2", "chunk3"]
+```
+
+### Parse with URL Extraction
+
+```python
+parse_node = ParseNode(
+    input="document & url",
+    output=["parsed_doc", "link_urls", "img_urls"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "chunk_size": 4096,
+        "parse_html": True,
+        "parse_urls": True,  # Enable URL extraction
+        "verbose": True
+    }
+)
+
+state = {
+    "document": [Document(page_content="<html>...</html>")],
+    "url": "https://example.com"
+}
+updated_state = parse_node.execute(state)
+
+print("Parsed chunks:", len(updated_state["parsed_doc"]))
+print("Links found:", updated_state["link_urls"])
+print("Images found:", updated_state["img_urls"])
+```
+
+### Parse Markdown Content
+
+```python
+parse_node = ParseNode(
+    input="document",
+    output=["parsed_doc"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "chunk_size": 2048,
+        "parse_html": False,  # Skip HTML parsing for markdown
+        "verbose": False
+    }
+)
+
+state = {
+    "document": [Document(page_content="# Title\n\nContent...")]
+}
+updated_state = parse_node.execute(state)
+```
+
+### Custom Chunk Size
+
+```python
+parse_node = ParseNode(
+    input="document",
+    output=["parsed_doc"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "chunk_size": 8192,  # Larger chunks for long-context models
+        "parse_html": True,
+        "verbose": True
+    }
+)
+
+state = {
+    "document": [Document(page_content="<html>...</html>")]
+}
+updated_state = parse_node.execute(state)
+```
+
+### Extract Only Links
+
+```python
+parse_node = ParseNode(
+    input="document & url",
+    output=["parsed_doc", "link_urls", "img_urls"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "chunk_size": 4096,
+        "parse_html": True,
+        "parse_urls": True
+    }
+)
+
+state = {
+    "document": [Document(page_content="...")],
+    "url": "https://example.com/page"
+}
+updated_state = parse_node.execute(state)
+
+# Filter only HTTP/HTTPS links
+http_links = [url for url in updated_state["link_urls"] 
+              if url.startswith("http")]
+print(f"Found {len(http_links)} HTTP links")
+```
+
+## Parsing Process
+
+The ParseNode follows this process:
+
+1. **HTML to Text Conversion** (if `parse_html=True`)
+   - Uses `Html2TextTransformer` to convert HTML to plain text
+   - Preserves link structure for URL extraction
+
+2. **URL Extraction** (if `parse_urls=True`)
+   - Extracts absolute and relative URLs using regex patterns
+   - Resolves relative URLs against the source URL
+   - Separates links from images based on file extensions
+   - Cleans URLs by removing markdown artifacts
+
+3. **Text Chunking**
+   - Splits text into chunks based on `chunk_size`
+   - Adjusts chunk size for HTML vs non-HTML content
+   - Ensures chunks don't exceed token limits
+
+4. **State Updates**
+   - Updates state with parsed chunks
+   - Optionally adds extracted URLs
+
+## URL Extraction Details
+
+### Supported URL Patterns
+
+The node recognizes these URL patterns:
+
+- **Absolute URLs**: `http://example.com`, `https://example.com`
+- **Relative URLs**: `/path/to/page`, `../relative/path`
+- **Protocol-relative URLs**: `//example.com/path`
+- **URLs in markdown**: `[text](url)`, `![alt](image.jpg)`
+
+### Image Detection
+
+Images are identified by these file extensions:
+
+```python
+image_extensions = [
+    ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg", 
+    ".webp", ".ico", ".tiff"
+]
+```
+
+### URL Cleaning
+
+Extracted URLs are cleaned by:
+
+- Removing markdown syntax artifacts (`[]()`, `[]()`)
+- Stripping trailing punctuation (`.`, `-`, `)`)
+- Resolving relative paths to absolute URLs
+- Filtering invalid URL formats
+
+## Chunking Strategy
+
+The node adjusts chunk sizes based on content type:
+
+- **HTML content** (when `parse_html=True`):
+  ```python
+  chunk_size = self.chunk_size - 250
+  ```
+
+- **Non-HTML content** (when `parse_html=False`):
+  ```python
+  chunk_size = min(chunk_size - 500, int(chunk_size * 0.8))
+  ```
+
+This ensures chunks don't exceed LLM token limits after formatting.
+
+## Error Handling
+
+The ParseNode handles errors gracefully:
+
+- **Missing input keys**: Raises `KeyError` with descriptive message
+- **URL extraction failures**: Returns empty URL lists instead of failing
+- **Invalid documents**: Processes first document only if list provided
+
+## Best Practices
+
+1. **Enable URL extraction only when needed** - Saves processing time
+2. **Adjust chunk_size for your LLM** - Consider model context window
+3. **Provide source URL for relative links** - Ensures correct URL resolution
+4. **Use parse_html=True for HTML content** - Better text extraction
+5. **Set parse_html=False for markdown** - Preserves markdown structure
+6. **Enable verbose mode for debugging** - See chunk processing progress
+
+## Performance Considerations
+
+- URL extraction adds ~10-20% processing time
+- Chunk size affects memory usage (smaller = more chunks = more memory)
+- HTML parsing is faster than URL extraction
+- Large documents benefit from parallel chunk processing in downstream nodes
+
+## Related Nodes
+
+- [FetchNode](/api/nodes/fetch-node) - Fetch content before parsing
+- [GenerateAnswerNode](/api/nodes/generate-answer-node) - Process parsed chunks
+- [SearchNode](/api/nodes/search-node) - Search using extracted URLs

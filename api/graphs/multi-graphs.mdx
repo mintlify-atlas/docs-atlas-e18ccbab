@@ -1,0 +1,565 @@
+---
+title: Multi-Graphs
+description: Process multiple sources simultaneously and merge results
+icon: "layer-group"
+---
+
+## Overview
+
+Multi-Graphs are specialized graph variants that process multiple sources (URLs, files) in parallel and merge the results into a single comprehensive answer. They are ideal for aggregating information from multiple sources.
+
+## Available Multi-Graphs
+
+- [SmartScraperMultiGraph](#smartscrapermultigraph) - Scrape multiple URLs
+- [CSVScraperMultiGraph](#csvscrapermultigraph) - Process multiple CSV files
+- [JSONScraperMultiGraph](#jsonscrapermultigraph) - Process multiple JSON files
+- [XMLScraperMultiGraph](#xmlscrapermultigraph) - Process multiple XML files
+- [DocumentScraperMultiGraph](#documentscrapermultigraph) - Process multiple Markdown files
+- [ScriptCreatorMultiGraph](#scriptcreatormultigraph) - Generate scripts for multiple URLs
+
+---
+
+## SmartScraperMultiGraph
+
+Scrapes a list of URLs and generates a merged answer from all sources.
+
+### Class Signature
+
+```python
+class SmartScraperMultiGraph(AbstractGraph):
+    def __init__(
+        self,
+        prompt: str,
+        source: List[str],
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None,
+    )
+```
+
+### Parameters
+
+<ParamField path="prompt" type="str" required>
+  The extraction prompt to apply to all URLs.
+</ParamField>
+
+<ParamField path="source" type="List[str]" required>
+  List of URLs to scrape.
+</ParamField>
+
+<ParamField path="config" type="dict" required>
+  Configuration with `llm` settings.
+</ParamField>
+
+<ParamField path="schema" type="Type[BaseModel]" default="None">
+  Optional output schema.
+</ParamField>
+
+### Usage Example
+
+```python
+from scrapegraphai.graphs import SmartScraperMultiGraph
+
+config = {
+    "llm": {
+        "model": "openai/gpt-4o",
+        "api_key": "your-api-key"
+    }
+}
+
+urls = [
+    "https://example.com/page1",
+    "https://example.com/page2",
+    "https://example.com/page3"
+]
+
+multi_scraper = SmartScraperMultiGraph(
+    prompt="Extract all product information",
+    source=urls,
+    config=config
+)
+
+result = multi_scraper.run()
+print(result)  # Merged results from all 3 URLs
+```
+
+### Workflow
+
+```
+GraphIteratorNode → MergeAnswersNode
+```
+
+1. **GraphIteratorNode**: Runs SmartScraperGraph on each URL in parallel
+2. **MergeAnswersNode**: Merges all results into a single answer
+
+---
+
+## CSVScraperMultiGraph
+
+Processes multiple CSV files and generates a merged answer.
+
+### Class Signature
+
+```python
+class CSVScraperMultiGraph(AbstractGraph):
+    def __init__(
+        self,
+        prompt: str,
+        source: List[str],
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None,
+    )
+```
+
+### Usage Example
+
+```python
+from scrapegraphai.graphs import CSVScraperMultiGraph
+
+config = {
+    "llm": {"model": "openai/gpt-4o"}
+}
+
+csv_files = [
+    "sales_2023.csv",
+    "sales_2024.csv",
+    "sales_2025.csv"
+]
+
+multi_csv = CSVScraperMultiGraph(
+    prompt="Compare total revenue across all years",
+    source=csv_files,
+    config=config
+)
+
+result = multi_csv.run()
+```
+
+---
+
+## JSONScraperMultiGraph
+
+Processes multiple JSON files and generates a merged answer.
+
+### Class Signature
+
+```python
+class JSONScraperMultiGraph(AbstractGraph):
+    def __init__(
+        self,
+        prompt: str,
+        source: List[str],
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None,
+    )
+```
+
+### Usage Example
+
+```python
+from scrapegraphai.graphs import JSONScraperMultiGraph
+
+config = {
+    "llm": {"model": "openai/gpt-4o"}
+}
+
+json_files = [
+    "users_2023.json",
+    "users_2024.json",
+    "users_2025.json"
+]
+
+multi_json = JSONScraperMultiGraph(
+    prompt="Count total users and analyze growth trends",
+    source=json_files,
+    config=config
+)
+
+result = multi_json.run()
+```
+
+---
+
+## XMLScraperMultiGraph
+
+Processes multiple XML files and generates a merged answer.
+
+### Class Signature
+
+```python
+class XMLScraperMultiGraph(AbstractGraph):
+    def __init__(
+        self,
+        prompt: str,
+        source: List[str],
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None,
+    )
+```
+
+### Usage Example
+
+```python
+from scrapegraphai.graphs import XMLScraperMultiGraph
+
+config = {
+    "llm": {"model": "openai/gpt-4o"}
+}
+
+xml_files = [
+    "config_prod.xml",
+    "config_staging.xml",
+    "config_dev.xml"
+]
+
+multi_xml = XMLScraperMultiGraph(
+    prompt="Compare configuration differences across environments",
+    source=xml_files,
+    config=config
+)
+
+result = multi_xml.run()
+```
+
+---
+
+## DocumentScraperMultiGraph
+
+Processes multiple Markdown files and generates a merged answer.
+
+### Class Signature
+
+```python
+class DocumentScraperMultiGraph(AbstractGraph):
+    def __init__(
+        self,
+        prompt: str,
+        source: List[str],
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None,
+    )
+```
+
+### Usage Example
+
+```python
+from scrapegraphai.graphs import DocumentScraperMultiGraph
+
+config = {
+    "llm": {"model": "openai/gpt-4o"}
+}
+
+md_files = [
+    "docs/intro.md",
+    "docs/installation.md",
+    "docs/quickstart.md"
+]
+
+multi_doc = DocumentScraperMultiGraph(
+    prompt="Create a comprehensive getting started guide",
+    source=md_files,
+    config=config
+)
+
+result = multi_doc.run()
+```
+
+---
+
+## ScriptCreatorMultiGraph
+
+Generates web scraping scripts for multiple URLs and merges them.
+
+### Class Signature
+
+```python
+class ScriptCreatorMultiGraph(AbstractGraph):
+    def __init__(
+        self,
+        prompt: str,
+        source: List[str],
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None,
+    )
+```
+
+### Usage Example
+
+```python
+from scrapegraphai.graphs import ScriptCreatorMultiGraph
+
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "library": "beautifulsoup"
+}
+
+urls = [
+    "https://example.com/products",
+    "https://example.com/reviews",
+    "https://example.com/pricing"
+]
+
+script_multi = ScriptCreatorMultiGraph(
+    prompt="Generate scraping scripts for all pages",
+    source=urls,
+    config=config
+)
+
+merged_script = script_multi.run()
+print(merged_script)  # Combined script for all URLs
+```
+
+### Workflow
+
+```
+GraphIteratorNode → MergeGeneratedScriptsNode
+```
+
+---
+
+## Common Features
+
+All Multi-Graphs share these characteristics:
+
+### Parallel Processing
+
+Multiple sources are processed in parallel for efficiency:
+
+```python
+# Processes all URLs simultaneously
+urls = ["url1", "url2", "url3", "url4", "url5"]
+multi_scraper = SmartScraperMultiGraph(
+    prompt="Extract data",
+    source=urls,
+    config=config
+)
+# Much faster than sequential processing
+```
+
+### Merged Output
+
+Results from all sources are intelligently merged:
+
+```python
+result = multi_scraper.run()
+# Single comprehensive answer combining all sources
+```
+
+### Structured Output
+
+Support for Pydantic schemas across all sources:
+
+```python
+from pydantic import BaseModel
+from typing import List
+
+class Product(BaseModel):
+    name: str
+    price: float
+    source_url: str
+
+class Products(BaseModel):
+    products: List[Product]
+    total_count: int
+
+multi_scraper = SmartScraperMultiGraph(
+    prompt="Extract all products",
+    source=urls,
+    config=config,
+    schema=Products
+)
+
+result = multi_scraper.run()
+```
+
+## Advanced Usage
+
+### Competitive Analysis
+
+```python
+from pydantic import BaseModel
+from typing import List
+
+class CompetitorInfo(BaseModel):
+    company: str
+    pricing: str
+    features: List[str]
+    unique_selling_points: List[str]
+
+class MarketAnalysis(BaseModel):
+    competitors: List[CompetitorInfo]
+    market_insights: str
+    recommendations: str
+
+competitor_urls = [
+    "https://competitor1.com/pricing",
+    "https://competitor2.com/features",
+    "https://competitor3.com/products"
+]
+
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "additional_info": "Focus on pricing, features, and competitive advantages"
+}
+
+multi_scraper = SmartScraperMultiGraph(
+    prompt="Analyze competitor offerings and provide market insights",
+    source=competitor_urls,
+    config=config,
+    schema=MarketAnalysis
+)
+
+analysis = multi_scraper.run()
+```
+
+### News Aggregation
+
+```python
+from pydantic import BaseModel
+from typing import List
+
+class Article(BaseModel):
+    title: str
+    summary: str
+    source: str
+    key_points: List[str]
+
+class NewsDigest(BaseModel):
+    articles: List[Article]
+    overall_summary: str
+    common_themes: List[str]
+
+news_urls = [
+    "https://news1.com/article1",
+    "https://news2.com/article2",
+    "https://news3.com/article3"
+]
+
+multi_scraper = SmartScraperMultiGraph(
+    prompt="Create a news digest with summaries and common themes",
+    source=news_urls,
+    config=config,
+    schema=NewsDigest
+)
+
+digest = multi_scraper.run()
+```
+
+### Multi-Site Product Comparison
+
+```python
+from pydantic import BaseModel
+from typing import List, Optional
+
+class ProductListing(BaseModel):
+    product_name: str
+    site: str
+    price: float
+    availability: str
+    rating: Optional[float] = None
+    shipping: Optional[str] = None
+
+class PriceComparison(BaseModel):
+    listings: List[ProductListing]
+    best_deal: str
+    price_range: str
+    recommendation: str
+
+product_urls = [
+    "https://site1.com/product/12345",
+    "https://site2.com/product/67890",
+    "https://site3.com/product/11111"
+]
+
+multi_scraper = SmartScraperMultiGraph(
+    prompt="Compare the same product across different sites and recommend the best deal",
+    source=product_urls,
+    config=config,
+    schema=PriceComparison
+)
+
+comparison = multi_scraper.run()
+```
+
+## Performance Considerations
+
+### Number of Sources
+
+```python
+# Recommended: 3-10 sources for balanced performance
+urls = ["url1", "url2", "url3", "url4", "url5"]
+
+# Large scale: 10-50 sources (slower but comprehensive)
+many_urls = [f"https://example.com/page{i}" for i in range(50)]
+
+# Consider breaking very large batches into smaller groups
+for batch in chunks(many_urls, 10):
+    result = SmartScraperMultiGraph(
+        prompt="Extract data",
+        source=batch,
+        config=config
+    ).run()
+```
+
+### Timeout Configuration
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "timeout": 600,  # 10 minutes for multiple sources
+    "verbose": True  # Monitor progress
+}
+```
+
+## Error Handling
+
+```python
+try:
+    result = multi_scraper.run()
+    
+    if result == "No answer found.":
+        print("Failed to extract from all sources")
+        
+        # Check individual results in state
+        final_state = multi_scraper.get_state()
+        individual_results = final_state.get("results", [])
+        
+        print(f"Successfully processed {len(individual_results)} sources")
+        for i, res in enumerate(individual_results, 1):
+            print(f"Source {i}: {res}")
+    else:
+        print(f"Success: {result}")
+        
+except Exception as e:
+    print(f"Error during multi-scraping: {e}")
+```
+
+## Comparison: Multi vs Single Graphs
+
+| Feature | Multi-Graph | Single Graph |
+|---------|-------------|-------------|
+| **Sources** | Multiple | Single |
+| **Processing** | Parallel | Sequential |
+| **Output** | Merged | Single |
+| **Use Case** | Aggregation | Focused extraction |
+| **Complexity** | Higher | Lower |
+| **Cost** | Higher (more API calls) | Lower |
+
+## When to Use Multi-Graphs
+
+**Use Multi-Graphs when:**
+- You need to aggregate data from multiple sources
+- Sources contain complementary information
+- You want comparative analysis
+- You need comprehensive coverage
+
+**Use Single Graphs when:**
+- You have a single source
+- Sources are independent
+- You need fine-grained control
+- Cost optimization is priority
+
+## Related Graphs
+
+- [SmartScraperGraph](/api/graphs/smart-scraper-graph) - Single URL scraping
+- [SearchGraph](/api/graphs/search-graph) - Search and scrape (automatically finds URLs)
+- [DepthSearchGraph](/api/graphs/depth-search-graph) - Deep crawl single domain

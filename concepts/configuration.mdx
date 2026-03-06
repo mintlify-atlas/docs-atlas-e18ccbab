@@ -1,0 +1,612 @@
+---
+title: Configuration
+description: Complete guide to configuring graphs, nodes, and LLMs in ScrapeGraphAI
+---
+
+# Configuration
+
+Configuration in ScrapeGraphAI is done through a dictionary that controls the behavior of graphs, nodes, and LLM models.
+
+## Configuration Structure
+
+The main configuration dictionary has the following structure:
+
+```python
+graph_config = {
+    "llm": {                    # LLM configuration (required)
+        "model": "provider/model-name",
+        "api_key": "your-api-key",
+        # ... model-specific settings
+    },
+    "verbose": False,           # Enable detailed logging
+    "headless": True,          # Browser headless mode
+    "timeout": 480,            # Request timeout (seconds)
+    "cache_path": False,       # Enable caching
+    "loader_kwargs": {},       # Browser loader options
+    # ... additional options
+}
+```
+
+<Info>
+The `llm` configuration is **required** for all graphs. All other settings are optional.
+</Info>
+
+## LLM Configuration
+
+The `llm` section configures the language model used for generation.
+
+### Basic Configuration
+
+```python
+"llm": {
+    "model": "openai/gpt-4o-mini",
+    "api_key": "sk-...",
+    "temperature": 0
+}
+```
+
+### Model Specification
+
+Models can be specified with or without provider prefix:
+
+<Accordion title="With Provider (Recommended)">
+```python
+# Format: "provider/model-name"
+"llm": {
+    "model": "openai/gpt-4o-mini"
+}
+
+"llm": {
+    "model": "anthropic/claude-3-opus-20240229"
+}
+
+"llm": {
+    "model": "groq/llama3-70b-8192"
+}
+```
+</Accordion>
+
+<Accordion title="Without Provider (Auto-detected)">
+```python
+# ScrapeGraphAI will auto-detect the provider
+"llm": {
+    "model": "gpt-4o-mini"  # Detected as OpenAI
+}
+
+"llm": {
+    "model": "llama3.1"  # Detected as Ollama
+}
+```
+
+If multiple providers support the same model, the first match is used.
+</Accordion>
+
+### Supported Providers
+
+<CardGroup cols={3}>
+  <Card title="OpenAI" icon="openai">
+    GPT-4, GPT-3.5, etc.
+  </Card>
+  <Card title="Anthropic" icon="message-bot">
+    Claude models
+  </Card>
+  <Card title="Google" icon="google">
+    Gemini, Vertex AI
+  </Card>
+  <Card title="Groq" icon="bolt">
+    Fast inference models
+  </Card>
+  <Card title="Ollama" icon="server">
+    Local model hosting
+  </Card>
+  <Card title="Azure OpenAI" icon="microsoft">
+    Azure-hosted models
+  </Card>
+  <Card title="Bedrock" icon="aws">
+    AWS Bedrock models
+  </Card>
+  <Card title="Mistral AI" icon="sparkles">
+    Mistral models
+  </Card>
+  <Card title="Hugging Face" icon="face-smile">
+    HF model endpoints
+  </Card>
+</CardGroup>
+
+### Provider-Specific Settings
+
+<Accordion title="OpenAI">
+```python
+"llm": {
+    "model": "openai/gpt-4o-mini",
+    "api_key": os.getenv("OPENAI_API_KEY"),
+    "temperature": 0,
+    "streaming": False,
+    "model_tokens": 128000  # Optional: override token limit
+}
+```
+</Accordion>
+
+<Accordion title="Anthropic (Claude)">
+```python
+"llm": {
+    "model": "anthropic/claude-3-sonnet-20240229",
+    "api_key": os.getenv("ANTHROPIC_API_KEY"),
+    "temperature": 0,
+    "max_tokens": 4096
+}
+```
+</Accordion>
+
+<Accordion title="Ollama (Local)">
+```python
+"llm": {
+    "model": "ollama/llama3.1",
+    "temperature": 0,
+    "base_url": "http://localhost:11434",  # Ollama server URL
+    "format": "json"  # Force JSON output
+}
+```
+</Accordion>
+
+<Accordion title="Google Gemini">
+```python
+"llm": {
+    "model": "google_genai/gemini-pro",
+    "api_key": os.getenv("GOOGLE_API_KEY"),
+    "temperature": 0
+}
+```
+</Accordion>
+
+<Accordion title="Groq">
+```python
+"llm": {
+    "model": "groq/llama3-70b-8192",
+    "api_key": os.getenv("GROQ_API_KEY"),
+    "temperature": 0
+}
+```
+</Accordion>
+
+<Accordion title="Azure OpenAI">
+```python
+"llm": {
+    "model": "azure_openai/gpt-4",
+    "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
+    "azure_endpoint": "https://your-resource.openai.azure.com/",
+    "api_version": "2024-02-15-preview",
+    "azure_deployment": "your-deployment-name",
+    "temperature": 0
+}
+```
+</Accordion>
+
+### Using Model Instances
+
+You can pass pre-configured model instances:
+
+```python
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0,
+    api_key="sk-..."
+)
+
+graph_config = {
+    "llm": {
+        "model_instance": llm,
+        "model_tokens": 128000  # Required with model_instance
+    },
+    "verbose": True
+}
+```
+
+### Rate Limiting
+
+Control request rates to avoid API limits:
+
+```python
+"llm": {
+    "model": "openai/gpt-4o-mini",
+    "api_key": "sk-...",
+    "rate_limit": {
+        "requests_per_second": 3,  # Max requests per second
+        "max_retries": 5           # Retry attempts on failure
+    }
+}
+```
+
+## Behavior Settings
+
+### Verbose Mode
+
+Enable detailed logging for debugging:
+
+```python
+"verbose": True  # Shows detailed execution logs
+```
+
+**Output:**
+```
+--- Executing Fetch Node ---
+Fetching HTML from: https://example.com
+--- Executing ParseNode Node ---
+Parsing document into 5 chunks
+--- Executing GenerateAnswer Node ---
+Processing chunks: 100%|██████████| 5/5 [00:03<00:00]
+```
+
+### Headless Mode
+
+Control browser visibility:
+
+```python
+"headless": True   # Browser runs in background (default)
+"headless": False  # Browser window visible (debugging)
+```
+
+<Note>
+Set `headless: False` when debugging to see what the browser is doing.
+</Note>
+
+### Timeout
+
+Set request timeout in seconds:
+
+```python
+"timeout": 30      # 30 seconds (default)
+"timeout": 120     # 2 minutes for slow sites
+"timeout": None    # No timeout (not recommended)
+```
+
+Applies to:
+- HTTP requests in FetchNode
+- Browser loading in ChromiumLoader
+- LLM generation requests
+
+### Cache Path
+
+Enable result caching:
+
+```python
+"cache_path": "./scraping_cache"  # Cache to specific directory
+"cache_path": False               # Disable caching (default)
+```
+
+## Browser Configuration
+
+### Loader Arguments
+
+Pass custom arguments to the browser loader:
+
+```python
+"loader_kwargs": {
+    "proxy": "http://proxy.example.com:8080",
+    "wait_until": "networkidle",  # Wait for network idle
+    "timeout": 60000,              # Browser timeout (ms)
+    "user_agent": "Custom User Agent"
+}
+```
+
+### Storage State
+
+Use saved browser sessions (cookies, local storage):
+
+```python
+"storage_state": "./auth_state.json"  # Load saved session
+```
+
+Useful for:
+- Logged-in scraping
+- Session persistence
+- Cookie-based access
+
+### Browser Services
+
+<Accordion title="BrowserBase">
+```python
+"browser_base": {
+    "api_key": "your-browserbase-key",
+    "project_id": "your-project-id"
+}
+```
+
+Uses BrowserBase for cloud browser automation.
+</Accordion>
+
+<Accordion title="ScrapeDo">
+```python
+"scrape_do": {
+    "api_key": "your-scrapedo-key",
+    "use_proxy": True,
+    "geoCode": "us",
+    "super_proxy": False
+}
+```
+
+Uses ScrapeDo proxy service for scraping.
+</Accordion>
+
+## Advanced Settings
+
+### HTML Mode
+
+Skip parsing and send raw HTML to LLM:
+
+```python
+"html_mode": True  # Skip ParseNode, use raw HTML
+```
+
+Use when:
+- Content is already clean
+- You want maximum context
+- Parsing breaks important structure
+
+### Force Markdown
+
+Force markdown conversion regardless of model:
+
+```python
+"force": True  # Always convert to markdown
+```
+
+Default behavior:
+- OpenAI models: Automatic markdown conversion
+- Other models: No conversion unless forced
+
+### Reasoning Mode
+
+Enable chain-of-thought reasoning:
+
+```python
+"reasoning": True  # Add ReasoningNode to pipeline
+```
+
+Adds a reasoning step before answer generation for better quality.
+
+### Reattempt Failed Extractions
+
+Retry when extraction fails:
+
+```python
+"reattempt": True  # Retry if answer is empty or "NA"
+```
+
+Adds a ConditionalNode that checks answer quality and regenerates if needed.
+
+### Additional Context
+
+Provide extra context to the LLM:
+
+```python
+"additional_info": "Focus on products under $50. Ignore out of stock items."
+```
+
+This text is prepended to prompts in GenerateAnswerNode.
+
+### Reduction Factor
+
+Control HTML reduction (Code Generator only):
+
+```python
+"reduction": 2  # Reduce HTML size by factor of 2
+```
+
+### Max Iterations
+
+Control code generation iterations:
+
+```python
+"max_iterations": {
+    "overall": 10,
+    "syntax": 3,
+    "execution": 3,
+    "validation": 3,
+    "semantic": 3
+}
+```
+
+## Burr Integration
+
+Enable workflow tracking with Burr:
+
+```python
+"burr_kwargs": {
+    "app_instance_id": "scraping-session-123",
+    "project_name": "my-scraper",
+    "storage_dir": "./burr_state"
+}
+```
+
+<Info>
+Burr provides state visualization, debugging tools, and execution replay capabilities.
+</Info>
+
+## Complete Configuration Example
+
+Here's a comprehensive example:
+
+```python
+import os
+from scrapegraphai.graphs import SmartScraperGraph
+from pydantic import BaseModel, Field
+from typing import List
+
+# Define output schema
+class Product(BaseModel):
+    name: str = Field(description="Product name")
+    price: float = Field(description="Price in USD")
+    available: bool = Field(description="In stock status")
+
+class Products(BaseModel):
+    products: List[Product]
+
+# Complete configuration
+graph_config = {
+    # LLM Configuration (Required)
+    "llm": {
+        "model": "openai/gpt-4o-mini",
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "temperature": 0,
+        "streaming": False,
+        "rate_limit": {
+            "requests_per_second": 3,
+            "max_retries": 5
+        }
+    },
+    
+    # Behavior Settings
+    "verbose": True,              # Show detailed logs
+    "headless": True,             # Run browser in background
+    "timeout": 60,                # 60 second timeout
+    "cache_path": "./cache",      # Enable caching
+    
+    # Browser Configuration
+    "loader_kwargs": {
+        "wait_until": "networkidle",
+        "timeout": 60000
+    },
+    
+    # Processing Options
+    "html_mode": False,           # Use parsed text
+    "force": True,                # Force markdown conversion
+    "cut": True,                  # Enable HTML cleanup
+    "reasoning": False,           # Disable reasoning step
+    "reattempt": True,            # Retry on failure
+    
+    # Additional Context
+    "additional_info": "Extract only products under $100"
+}
+
+# Create and run graph
+scraper = SmartScraperGraph(
+    prompt="Extract all available products",
+    source="https://example.com/shop",
+    config=graph_config,
+    schema=Products
+)
+
+result = scraper.run()
+print(result)
+```
+
+## Environment Variables
+
+Store sensitive data in environment variables:
+
+```bash
+# .env file
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+GROQ_API_KEY=gsk_...
+GOOGLE_API_KEY=AIza...
+```
+
+```python
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o-mini",
+        "api_key": os.getenv("OPENAI_API_KEY")
+    }
+}
+```
+
+<Note>
+Never commit API keys to version control. Always use environment variables or secure vaults.
+</Note>
+
+## Configuration Validation
+
+ScrapeGraphAI validates configuration at runtime:
+
+```python
+try:
+    graph = SmartScraperGraph(
+        prompt="Extract data",
+        source="https://example.com",
+        config=invalid_config
+    )
+except ValueError as e:
+    print(f"Configuration error: {e}")
+    # Handle configuration errors
+```
+
+Common errors:
+- Missing `llm` configuration
+- Invalid model provider
+- Missing required API keys
+- Invalid parameter types
+
+## Best Practices
+
+<Accordion title="Start Simple">
+Begin with minimal configuration:
+
+```python
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o-mini",
+        "api_key": os.getenv("OPENAI_API_KEY")
+    }
+}
+```
+
+Add settings as needed.
+</Accordion>
+
+<Accordion title="Use Environment Variables">
+Store credentials securely:
+
+```python
+# Good
+"api_key": os.getenv("OPENAI_API_KEY")
+
+# Bad
+"api_key": "sk-hardcoded-key-123"
+```
+</Accordion>
+
+<Accordion title="Enable Verbose for Debugging">
+Use verbose mode during development:
+
+```python
+"verbose": True if os.getenv("DEBUG") else False
+```
+</Accordion>
+
+<Accordion title="Set Appropriate Timeouts">
+Adjust timeouts based on site complexity:
+
+```python
+# Fast static sites
+"timeout": 30
+
+# Slow dynamic sites
+"timeout": 120
+```
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Schemas" icon="file-code" href="/concepts/schemas">
+    Define structured output with Pydantic
+  </Card>
+  <Card title="Graphs" icon="diagram-project" href="/concepts/graphs">
+    Learn about graph types and workflows
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/smart-scraper">
+    See configuration examples
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/graphs/smart-scraper-graph">
+    Complete API documentation
+  </Card>
+</CardGroup>

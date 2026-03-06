@@ -1,0 +1,617 @@
+---
+title: 'Troubleshooting'
+description: 'Common issues, debugging tips, and solutions for ScrapeGraphAI'
+icon: 'wrench'
+---
+
+## Common Issues
+
+### Installation Problems
+
+#### Playwright Not Installed
+
+**Error:**
+```
+PlaywrightError: Executable doesn't exist at /path/to/playwright
+```
+
+**Solution:**
+```bash
+# Install Playwright browsers after installing scrapegraphai
+pip install scrapegraphai
+playwright install
+
+# Or install with dependencies
+playwright install chromium
+```
+
+#### Missing Dependencies
+
+**Error:**
+```
+ImportError: cannot import name 'ChatOpenAI' from 'langchain_openai'
+```
+
+**Solution:**
+```bash
+# Install in a fresh virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install --upgrade scrapegraphai
+```
+
+### Graph Execution Errors
+
+#### Empty Results
+
+**Problem:** Graph executes but returns empty or null results.
+
+<Steps>
+  <Step title="Check Input Keys">
+    Ensure the initial state contains all required keys:
+    ```python
+    # Incorrect - missing user_prompt
+    result = graph.execute({"url": "https://example.com"})
+
+    # Correct
+    result = graph.execute({
+        "user_prompt": "Extract product data",
+        "url": "https://example.com"
+    })
+    ```
+  </Step>
+
+  <Step title="Enable Verbose Mode">
+    ```python
+    graph_config = {
+        "llm": {...},
+        "verbose": True,  # Enable detailed logging
+    }
+    ```
+  </Step>
+
+  <Step title="Check Node Outputs">
+    Inspect execution info:
+    ```python
+    state, execution_info = graph.execute(initial_state)
+    
+    for node_info in execution_info:
+        print(f"Node: {node_info['node_name']}")
+        print(f"Execution time: {node_info['exec_time']}s")
+        print(f"Tokens used: {node_info['total_tokens']}")
+    ```
+  </Step>
+</Steps>
+
+#### Node Execution Failures
+
+**Error:**
+```
+ValueError: No state keys matched the expression
+```
+
+**Solution:**
+Check that your node's input expression matches available state keys:
+
+```python
+# If state = {"url": "...", "user_prompt": "..."}
+
+# This will fail
+node = FetchNode(
+    input="source",  # 'source' not in state
+    output=["doc"]
+)
+
+# This works
+node = FetchNode(
+    input="url",  # 'url' is in state
+    output=["doc"]
+)
+```
+
+### LLM Issues
+
+#### API Key Errors
+
+**Error:**
+```
+AuthenticationError: Invalid API key provided
+```
+
+**Solution:**
+<Steps>
+  <Step title="Verify API Key">
+    ```python
+    import os
+    print(f"API Key: {os.getenv('OPENAI_API_KEY')[:10]}...")  # Check first 10 chars
+    ```
+  </Step>
+
+  <Step title="Use Environment Variables">
+    ```python
+    # .env file
+    OPENAI_API_KEY=sk-proj-...
+    
+    # In your code
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    graph_config = {
+        "llm": {
+            "model": "openai/gpt-4o",
+            "api_key": os.getenv("OPENAI_API_KEY"),
+        },
+    }
+    ```
+  </Step>
+
+  <Step title="Test API Connection">
+    ```python
+    from langchain_openai import ChatOpenAI
+    
+    llm = ChatOpenAI(
+        model="gpt-4o",
+        api_key=os.getenv("OPENAI_API_KEY")
+    )
+    
+    response = llm.invoke("Hello")
+    print(response.content)  # Should work if API key is valid
+    ```
+  </Step>
+</Steps>
+
+#### Rate Limits
+
+**Error:**
+```
+RateLimitError: You exceeded your current quota
+```
+
+**Solution:**
+```python
+import time
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10)
+)
+def run_scraper(url, prompt):
+    scraper = SmartScraperGraph(
+        prompt=prompt,
+        source=url,
+        config=graph_config,
+    )
+    return scraper.run()
+
+# Use with retry logic
+result = run_scraper("https://example.com", "Extract data")
+```
+
+#### Token Limit Exceeded
+
+**Error:**
+```
+InvalidRequestError: This model's maximum context length is 8192 tokens
+```
+
+**Solution:**
+<Accordion title="Reduce Input Size">
+```python
+# Option 1: Reduce chunk size
+parse_node = ParseNode(
+    input="doc",
+    output=["parsed_doc"],
+    node_config={
+        "chunk_size": 2048,  # Smaller chunks
+    },
+)
+
+# Option 2: Use RAG to filter content
+rag_node = RAGNode(
+    input="user_prompt & parsed_doc",
+    output=["relevant_chunks"],
+    node_config={
+        "llm_model": llm_model,
+        "embedder_model": embedder,
+    },
+)
+
+# Option 3: Use a model with larger context
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o-128k",  # Larger context window
+        "api_key": api_key,
+    },
+}
+```
+</Accordion>
+
+### Scraping Issues
+
+#### Timeout Errors
+
+**Error:**
+```
+TimeoutError: Page load exceeded timeout of 30 seconds
+```
+
+**Solution:**
+```python
+fetch_node = FetchNode(
+    input="url",
+    output=["doc"],
+    node_config={
+        "timeout": 60,  # Increase timeout to 60 seconds
+        "headless": True,
+        "loader_kwargs": {
+            "wait_until": "networkidle",  # Wait for network to be idle
+        },
+    },
+)
+```
+
+#### JavaScript-Heavy Sites
+
+**Problem:** Content not loading because JavaScript isn't executed.
+
+**Solution:**
+```python
+fetch_node = FetchNode(
+    input="url",
+    output=["doc"],
+    node_config={
+        "headless": False,  # Use headed browser for debugging
+        "loader_kwargs": {
+            "wait_until": "networkidle",
+            "timeout": 30000,  # 30 seconds in milliseconds
+        },
+    },
+)
+```
+
+#### Anti-Scraping Measures
+
+**Problem:** Website blocks or detects the scraper.
+
+**Solution:**
+<Steps>
+  <Step title="Check robots.txt">
+    ```python
+    from scrapegraphai.nodes import RobotsNode
+    
+    robot_node = RobotsNode(
+        input="url",
+        output=["is_scrapable"],
+        node_config={
+            "llm_model": llm_model,
+            "force_scraping": False,  # Respect robots.txt
+        },
+    )
+    ```
+  </Step>
+
+  <Step title="Add Delays">
+    ```python
+    import time
+    
+    urls = ["url1", "url2", "url3"]
+    for url in urls:
+        result = scraper.run()
+        time.sleep(2)  # 2-second delay between requests
+    ```
+  </Step>
+
+  <Step title="Use Browser Profiles">
+    ```python
+    fetch_node = FetchNode(
+        input="url",
+        output=["doc"],
+        node_config={
+            "storage_state": "./browser_state.json",  # Persist cookies/auth
+        },
+    )
+    ```
+  </Step>
+</Steps>
+
+### Custom Node Issues
+
+#### Input Expression Errors
+
+**Error:**
+```
+ValueError: Adjacent state keys found without an operator between them
+```
+
+**Solution:**
+```python
+# Incorrect - missing operator
+input = "url user_prompt"
+
+# Correct - use & or |
+input = "url & user_prompt"  # Both required
+input = "url | user_prompt"  # Either one
+```
+
+#### Output Not Updating State
+
+**Problem:** Node executes but state doesn't contain expected keys.
+
+**Solution:**
+```python
+class MyCustomNode(BaseNode):
+    def execute(self, state: dict) -> dict:
+        # Process data
+        result = self._process(state)
+        
+        # CRITICAL: Update state with output keys
+        state.update({self.output[0]: result})
+        
+        # Return modified state
+        return state
+```
+
+## Debugging Techniques
+
+### Enable Logging
+
+```python
+import logging
+from scrapegraphai.utils.logging import get_logger
+
+# Set log level
+logger = get_logger()
+logger.setLevel(logging.DEBUG)
+
+# Add console handler
+handler = logging.StreamHandler()
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+```
+
+### Inspect State at Each Node
+
+```python
+class DebugNode(BaseNode):
+    """Debug node to inspect state."""
+    
+    def __init__(self, input, output, node_config=None, node_name="Debug"):
+        super().__init__(node_name, "node", input, output, 0, node_config)
+    
+    def execute(self, state: dict) -> dict:
+        print("\n=== State Debug ===")
+        for key, value in state.items():
+            print(f"{key}: {type(value)} - {str(value)[:100]}...")
+        print("==================\n")
+        return state
+
+# Insert debug node between nodes
+graph = BaseGraph(
+    nodes=[fetch_node, debug_node, parse_node],
+    edges=[
+        (fetch_node, debug_node),
+        (debug_node, parse_node),
+    ],
+    entry_point=fetch_node,
+)
+```
+
+### Test Nodes in Isolation
+
+```python
+def test_fetch_node():
+    """Test FetchNode independently."""
+    fetch_node = FetchNode(
+        input="url",
+        output=["doc"],
+        node_config={"verbose": True}
+    )
+    
+    state = {"url": "https://example.com"}
+    result = fetch_node.execute(state)
+    
+    assert "doc" in result
+    assert len(result["doc"]) > 0
+    print("FetchNode test passed")
+
+test_fetch_node()
+```
+
+### Use Try-Except Blocks
+
+```python
+try:
+    result, execution_info = graph.execute(initial_state)
+except Exception as e:
+    print(f"Error type: {type(e).__name__}")
+    print(f"Error message: {str(e)}")
+    import traceback
+    traceback.print_exc()
+    
+    # Inspect state at failure
+    print("\nCurrent state:")
+    print(initial_state)
+```
+
+## Performance Optimization
+
+### Slow Execution
+
+<Accordion title="Optimization Strategies">
+
+**1. Use Faster Models**
+```python
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-3.5-turbo",  # Faster than GPT-4
+    },
+}
+```
+
+**2. Reduce Chunk Size**
+```python
+parse_node = ParseNode(
+    input="doc",
+    output=["parsed_doc"],
+    node_config={
+        "chunk_size": 2048,  # Smaller = faster
+    },
+)
+```
+
+**3. Skip Unnecessary Nodes**
+```python
+# If you don't need RAG, remove it
+graph = BaseGraph(
+    nodes=[fetch_node, parse_node, generate_node],  # Skip RAG
+    edges=[
+        (fetch_node, parse_node),
+        (parse_node, generate_node),  # Direct connection
+    ],
+    entry_point=fetch_node,
+)
+```
+
+**4. Parallelize Multiple Scrapes**
+```python
+from concurrent.futures import ThreadPoolExecutor
+
+def scrape_url(url):
+    scraper = SmartScraperGraph(
+        prompt="Extract data",
+        source=url,
+        config=graph_config,
+    )
+    return scraper.run()
+
+urls = ["url1", "url2", "url3"]
+with ThreadPoolExecutor(max_workers=3) as executor:
+    results = list(executor.map(scrape_url, urls))
+```
+
+</Accordion>
+
+### Memory Issues
+
+**Problem:** High memory usage with large documents.
+
+**Solution:**
+```python
+import gc
+
+for url in urls:
+    result = scraper.run()
+    # Process result
+    
+    # Force garbage collection
+    gc.collect()
+```
+
+## Getting Help
+
+### Before Asking for Help
+
+<Steps>
+  <Step title="Check Documentation">
+    Review the [official documentation](https://scrapegraphai.com/docs) and examples.
+  </Step>
+
+  <Step title="Search Issues">
+    Check [GitHub Issues](https://github.com/ScrapeGraphAI/Scrapegraph-ai/issues) for similar problems.
+  </Step>
+
+  <Step title="Minimal Reproducible Example">
+    Create a minimal script that reproduces the issue:
+    ```python
+    # Minimal reproduction
+    from scrapegraphai.graphs import SmartScraperGraph
+    
+    scraper = SmartScraperGraph(
+        prompt="Extract title",
+        source="https://example.com",
+        config={
+            "llm": {"model": "openai/gpt-4o"},
+            "verbose": True,
+        },
+    )
+    
+    result = scraper.run()
+    print(result)
+    ```
+  </Step>
+
+  <Step title="Gather Information">
+    Include:
+    - ScrapeGraphAI version: `pip show scrapegraphai`
+    - Python version: `python --version`
+    - Operating system
+    - Complete error message and stack trace
+    - Code that reproduces the issue
+  </Step>
+</Steps>
+
+### Community Resources
+
+- **Discord**: [Join the community](https://discord.gg/gkxQDAjfeX)
+- **GitHub Discussions**: [Ask questions](https://github.com/ScrapeGraphAI/Scrapegraph-ai/discussions)
+- **GitHub Issues**: [Report bugs](https://github.com/ScrapeGraphAI/Scrapegraph-ai/issues/new)
+- **Documentation**: [docs.scrapegraphai.com](https://docs.scrapegraphai.com)
+
+## FAQ
+
+<Accordion title="Why is my scraper returning null or empty results?">
+Check that:
+1. Your prompt is clear and specific
+2. The URL is accessible and contains the expected content
+3. JavaScript has time to load (increase timeout)
+4. You're using `verbose: True` to see what's happening
+</Accordion>
+
+<Accordion title="How do I scrape JavaScript-heavy websites?">
+Use the FetchNode with appropriate wait conditions:
+```python
+node_config={
+    "loader_kwargs": {
+        "wait_until": "networkidle",
+        "timeout": 30000,
+    },
+}
+```
+</Accordion>
+
+<Accordion title="Can I use local LLMs instead of OpenAI?">
+Yes! Use Ollama or other local models:
+```python
+graph_config = {
+    "llm": {
+        "model": "ollama/llama3.2",
+        "base_url": "http://localhost:11434",
+    },
+}
+```
+</Accordion>
+
+<Accordion title="How do I handle CAPTCHAs?">
+CAPTCHAs typically require manual solving. Consider:
+1. Using authenticated sessions (cookies)
+2. Using the `storage_state` option to persist auth
+3. Third-party CAPTCHA solving services
+4. Checking if the site offers an API
+</Accordion>
+
+<Accordion title="My graph is slow. How can I speed it up?">
+1. Use faster models (gpt-3.5-turbo vs gpt-4)
+2. Reduce chunk sizes
+3. Remove unnecessary nodes
+4. Parallelize multiple scrapes
+5. Use caching for repeated scrapes
+</Accordion>
+
+## Next Steps
+
+- Review [custom graphs](/advanced/custom-graphs) documentation
+- Learn about [integrations](/advanced/integrations)
+- Understand [telemetry](/advanced/telemetry) and privacy

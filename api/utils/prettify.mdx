@@ -1,0 +1,144 @@
+---
+title: "Prettify Execution Info"
+description: "Format graph execution statistics into readable output"
+---
+
+The prettify module provides utilities to format execution information from ScrapeGraphAI graphs into human-readable tables.
+
+## Functions
+
+### prettify_exec_info
+
+```python
+prettify_exec_info(
+    complete_result: list[dict],
+    as_string: bool = True
+) -> Union[str, list[dict]]
+```
+
+Formats the execution information of a graph showing node statistics including tokens, costs, and execution time.
+
+<ParamField path="complete_result" type="list[dict]" required>
+  The execution information containing node statistics. Each dictionary should contain:
+  - `node_name`: Name of the graph node
+  - `total_tokens`: Total tokens used
+  - `prompt_tokens`: Tokens used in prompts
+  - `completion_tokens`: Tokens used in completions
+  - `successful_requests`: Number of successful API requests
+  - `total_cost_USD`: Total cost in USD
+  - `exec_time`: Execution time in seconds
+</ParamField>
+
+<ParamField path="as_string" type="bool" default="True">
+  If True, returns a formatted string table. If False, returns the original list of dictionaries.
+</ParamField>
+
+<ResponseField name="result" type="Union[str, list[dict]]">
+  A formatted string table if `as_string=True`, otherwise the original list of dictionaries.
+</ResponseField>
+
+## Usage Example
+
+```python
+from scrapegraphai.utils import prettify_exec_info
+from scrapegraphai.graphs import SmartScraperGraph
+
+# Configure your graph
+graph_config = {
+    "llm": {"model": "openai/gpt-4o-mini"},
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Extract all product names and prices",
+    source="https://example.com/products",
+    config=graph_config,
+)
+
+# Run the graph
+result = smart_scraper.run()
+
+# Get execution info
+exec_info = smart_scraper.get_execution_info()
+
+# Prettify the execution information
+pretty_info = prettify_exec_info(exec_info)
+print(pretty_info)
+```
+
+### Example Output
+
+When `as_string=True`, the function returns a formatted table:
+
+```
+Node Statistics:
+----------------------------------------------------------------------------------------------------
+Node                 Tokens     Prompt     Compl.     Requests   Cost ($)   Time (s)  
+----------------------------------------------------------------------------------------------------
+FetchNode           0          0          0          0          0.0000     1.23      
+ParseNode           1250       850        400        1          0.0125     0.45      
+RAGNode             2100       1500       600        1          0.0210     0.78      
+GenerateAnswerNode  1800       1200       600        1          0.0180     0.56      
+```
+
+### Accessing Raw Data
+
+```python
+from scrapegraphai.utils import prettify_exec_info
+
+# Get the raw execution data
+exec_info = smart_scraper.get_execution_info()
+
+# Return the original list without formatting
+raw_data = prettify_exec_info(exec_info, as_string=False)
+
+# Process the data
+for node_info in raw_data:
+    print(f"Node: {node_info['node_name']}")
+    print(f"Cost: ${node_info['total_cost_USD']:.4f}")
+    print(f"Time: {node_info['exec_time']:.2f}s")
+    print("---")
+```
+
+### Integration with Logging
+
+```python
+from scrapegraphai.utils import prettify_exec_info, get_logger, set_verbosity_info
+from scrapegraphai.graphs import SmartScraperGraph
+
+# Setup logging
+set_verbosity_info()
+logger = get_logger()
+
+# Run your graph
+graph_config = {"llm": {"model": "openai/gpt-4o-mini"}}
+smart_scraper = SmartScraperGraph(
+    prompt="Extract article titles",
+    source="https://example.com",
+    config=graph_config,
+)
+
+result = smart_scraper.run()
+
+# Log the execution statistics
+exec_info = smart_scraper.get_execution_info()
+pretty_info = prettify_exec_info(exec_info)
+logger.info(f"\n{pretty_info}")
+```
+
+## Understanding the Output
+
+The formatted table includes the following columns:
+
+- **Node**: The name of the graph node (e.g., FetchNode, ParseNode, RAGNode)
+- **Tokens**: Total tokens used by the node
+- **Prompt**: Number of tokens in the prompt sent to the LLM
+- **Compl.**: Number of tokens in the completion from the LLM
+- **Requests**: Number of successful API requests made by the node
+- **Cost ($)**: Total cost in USD for the node's operations
+- **Time (s)**: Execution time in seconds for the node
+
+This information is useful for:
+- Monitoring API usage and costs
+- Identifying performance bottlenecks
+- Optimizing prompt efficiency
+- Tracking resource consumption across different nodes

@@ -1,0 +1,357 @@
+---
+title: SearchGraph
+description: Search the internet and extract information from top results
+icon: "magnifying-glass"
+---
+
+## Overview
+
+`SearchGraph` is a scraping pipeline that searches the internet for answers to a given prompt. It automatically searches for relevant URLs, scrapes them, and merges the results into a comprehensive answer.
+
+## Class Signature
+
+```python
+class SearchGraph(AbstractGraph):
+    def __init__(
+        self,
+        prompt: str,
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None
+    )
+```
+
+## Constructor Parameters
+
+<ParamField path="prompt" type="str" required>
+  The user prompt to search the internet. This will be used both for searching and for extracting information from found pages.
+</ParamField>
+
+<ParamField path="config" type="dict" required>
+  Configuration parameters for the graph. Must include:
+  - `llm`: LLM configuration (e.g., `{"model": "openai/gpt-4o"}`)
+  
+  Optional parameters:
+  - `max_results` (int): Maximum number of search results to scrape (default: 3)
+  - `search_engine` (str): Search engine to use ("google", "bing", "duckduckgo")
+  - `serper_api_key` (str): API key for Serper.dev (for Google search)
+  - `verbose` (bool): Enable detailed logging
+  - `headless` (bool): Run browser in headless mode
+  - Other parameters inherited from SmartScraperGraph
+</ParamField>
+
+<ParamField path="schema" type="Type[BaseModel]" default="None">
+  Optional Pydantic model defining the expected output structure.
+</ParamField>
+
+## Attributes
+
+<ResponseField name="prompt" type="str">
+  The user's search and extraction prompt.
+</ResponseField>
+
+<ResponseField name="config" type="dict">
+  Configuration dictionary for the graph.
+</ResponseField>
+
+<ResponseField name="schema" type="BaseModel">
+  Optional output schema for structured data extraction.
+</ResponseField>
+
+<ResponseField name="llm_model" type="object">
+  The configured language model instance.
+</ResponseField>
+
+<ResponseField name="max_results" type="int">
+  Maximum number of URLs to scrape from search results.
+</ResponseField>
+
+<ResponseField name="considered_urls" type="List[str]">
+  List of URLs that were considered during the search.
+</ResponseField>
+
+## Methods
+
+### run()
+
+Executes the web scraping and searching process.
+
+```python
+def run(self) -> str
+```
+
+<ResponseField name="return" type="str">
+  The merged answer from all scraped sources, or "No answer found." if extraction fails.
+</ResponseField>
+
+### get_considered_urls()
+
+Returns the list of URLs that were considered during the search.
+
+```python
+def get_considered_urls(self) -> List[str]
+```
+
+<ResponseField name="return" type="List[str]">
+  A list of URLs that were found and scraped during the search process.
+</ResponseField>
+
+## Basic Usage
+
+```python
+from scrapegraphai.graphs import SearchGraph
+
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o",
+        "api_key": "your-api-key"
+    },
+    "max_results": 5
+}
+
+search_graph = SearchGraph(
+    prompt="What is Chioggia famous for?",
+    config=graph_config
+)
+
+result = search_graph.run()
+print(result)
+
+# Get the URLs that were scraped
+urls = search_graph.get_considered_urls()
+print(f"Scraped {len(urls)} URLs:")
+for url in urls:
+    print(f"  - {url}")
+```
+
+## Structured Output with Schema
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class Restaurant(BaseModel):
+    name: str = Field(description="Restaurant name")
+    cuisine: str = Field(description="Type of cuisine")
+    rating: float = Field(description="Average rating")
+    location: str = Field(description="Address or area")
+
+class RestaurantList(BaseModel):
+    restaurants: List[Restaurant]
+
+search_graph = SearchGraph(
+    prompt="Find the best Italian restaurants in San Francisco",
+    config=graph_config,
+    schema=RestaurantList
+)
+
+result = search_graph.run()
+print(result)
+```
+
+## Search Engine Configuration
+
+### Using DuckDuckGo (Default)
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "search_engine": "duckduckgo",  # No API key needed
+    "max_results": 5
+}
+
+search_graph = SearchGraph(
+    prompt="Latest AI news",
+    config=config
+)
+```
+
+### Using Google via Serper.dev
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "search_engine": "google",
+    "serper_api_key": "your-serper-api-key",
+    "max_results": 10
+}
+
+search_graph = SearchGraph(
+    prompt="Best Python web scraping libraries 2024",
+    config=config
+)
+```
+
+### Using Bing
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "search_engine": "bing",
+    "max_results": 5
+}
+
+search_graph = SearchGraph(
+    prompt="Machine learning tutorials",
+    config=config
+)
+```
+
+## Advanced Usage
+
+### Controlling Number of Results
+
+```python
+# Scrape fewer URLs for faster results
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "max_results": 3  # Only scrape top 3 results
+}
+
+# Scrape more URLs for comprehensive coverage
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "max_results": 10  # Scrape top 10 results
+}
+```
+
+### With Browser State
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "storage_state": "./auth_state.json",  # Use authenticated session
+    "max_results": 5
+}
+
+search_graph = SearchGraph(
+    prompt="My private GitHub repositories",
+    config=config
+)
+```
+
+## Graph Workflow
+
+The SearchGraph uses the following node pipeline:
+
+```
+SearchInternetNode → GraphIteratorNode → MergeAnswersNode
+```
+
+1. **SearchInternetNode**: Searches the internet for relevant URLs
+2. **GraphIteratorNode**: Runs SmartScraperGraph on each found URL
+3. **MergeAnswersNode**: Merges all extracted information into a single answer
+
+## Accessing Search Results
+
+```python
+result = search_graph.run()
+
+# Get the merged answer
+print("Answer:", result)
+
+# Get all considered URLs
+urls = search_graph.get_considered_urls()
+print(f"\nScraped {len(urls)} sources:")
+for i, url in enumerate(urls, 1):
+    print(f"{i}. {url}")
+
+# Access full state
+final_state = search_graph.get_state()
+print("\nRaw results from each URL:")
+for i, res in enumerate(final_state.get("results", []), 1):
+    print(f"\nResult {i}:")
+    print(res)
+```
+
+## Execution Information
+
+```python
+result = search_graph.run()
+
+# Get detailed execution metrics
+exec_info = search_graph.get_execution_info()
+for node_info in exec_info:
+    print(f"Node: {node_info['node_name']}")
+    print(f"  Time: {node_info['exec_time']:.2f}s")
+    print(f"  Tokens: {node_info['total_tokens']}")
+    print(f"  Cost: ${node_info['total_cost_USD']:.4f}")
+    print()
+```
+
+## Comparison with SmartScraperGraph
+
+| Feature | SearchGraph | SmartScraperGraph |
+|---------|-------------|-------------------|
+| **Input** | Prompt only | Prompt + Source URL |
+| **Search** | Automatic | Manual |
+| **Sources** | Multiple (search results) | Single URL |
+| **Output** | Merged from multiple sources | Single source |
+| **Use Case** | Research, aggregation | Specific page scraping |
+
+## Use Cases
+
+1. **Market Research**: Gather information from multiple sources
+2. **News Aggregation**: Collect latest news on a topic
+3. **Product Comparison**: Compare products across different websites
+4. **Academic Research**: Find and summarize research on a topic
+5. **Competitive Analysis**: Gather competitor information
+
+## Example: Market Research
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class CompanyInfo(BaseModel):
+    name: str
+    headquarters: str
+    employees: str
+    revenue: str
+    products: List[str]
+
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "max_results": 5,
+    "search_engine": "google",
+    "serper_api_key": "your-key"
+}
+
+search_graph = SearchGraph(
+    prompt="Information about Tesla Inc: headquarters, employees, revenue, and main products",
+    config=config,
+    schema=CompanyInfo
+)
+
+result = search_graph.run()
+print(result)
+```
+
+## Error Handling
+
+```python
+try:
+    result = search_graph.run()
+    
+    if result == "No answer found.":
+        print("No relevant information found")
+        urls = search_graph.get_considered_urls()
+        print(f"Searched {len(urls)} URLs")
+    else:
+        print(f"Success: {result}")
+        
+except Exception as e:
+    print(f"Error during search: {e}")
+```
+
+## Performance Considerations
+
+1. **max_results**: More results = more comprehensive but slower and more expensive
+2. **search_engine**: Google (via Serper) is more accurate but requires API key
+3. **LLM model**: Faster models (gpt-3.5-turbo) vs. more accurate (gpt-4o)
+4. **parallel execution**: Multiple URLs are scraped in parallel for efficiency
+
+## Related Graphs
+
+- [SmartScraperGraph](/api/graphs/smart-scraper-graph) - Scrape a specific URL
+- [DepthSearchGraph](/api/graphs/depth-search-graph) - Deep crawl with internal links
+- [OmniSearchGraph](/api/graphs/search-graph) - Search with image analysis

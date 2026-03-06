@@ -1,0 +1,539 @@
+---
+title: XMLScraperGraph
+description: Extract information from XML files using natural language prompts
+icon: "code"
+---
+
+## Overview
+
+`XMLScraperGraph` is a scraping pipeline that extracts information from XML files using natural language queries. It allows you to query XML data without writing XPath or complex XML parsing code.
+
+## Class Signature
+
+```python
+class XMLScraperGraph(AbstractGraph):
+    def __init__(
+        self,
+        prompt: str,
+        source: str,
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None,
+    )
+```
+
+## Constructor Parameters
+
+<ParamField path="prompt" type="str" required>
+  The natural language query to extract information from the XML file.
+</ParamField>
+
+<ParamField path="source" type="str" required>
+  The source XML file or directory. Can be:
+  - Path to a single XML file (e.g., `"data.xml"`)
+  - Path to a directory containing multiple XML files (e.g., `"./xml_data/"`)
+</ParamField>
+
+<ParamField path="config" type="dict" required>
+  Configuration parameters for the graph. Must include:
+  - `llm`: LLM configuration (e.g., `{"model": "openai/gpt-4o"}`)
+  
+  Optional parameters:
+  - `verbose` (bool): Enable detailed logging
+  - `headless` (bool): Run in headless mode
+  - `additional_info` (str): Extra context for the LLM
+</ParamField>
+
+<ParamField path="schema" type="Type[BaseModel]" default="None">
+  Optional Pydantic model defining the expected output structure.
+</ParamField>
+
+## Attributes
+
+<ResponseField name="prompt" type="str">
+  The user's query prompt.
+</ResponseField>
+
+<ResponseField name="source" type="str">
+  The XML file path or directory path.
+</ResponseField>
+
+<ResponseField name="config" type="dict">
+  Configuration dictionary for the graph.
+</ResponseField>
+
+<ResponseField name="schema" type="BaseModel">
+  Optional output schema for structured data extraction.
+</ResponseField>
+
+<ResponseField name="llm_model" type="object">
+  The configured language model instance.
+</ResponseField>
+
+<ResponseField name="input_key" type="str">
+  Either "xml" (single file) or "xml_dir" (directory) based on the source.
+</ResponseField>
+
+## Methods
+
+### run()
+
+Executes the XML querying process and returns the answer.
+
+```python
+def run(self) -> str
+```
+
+<ResponseField name="return" type="str">
+  The extracted information from the XML file(s), or "No answer found." if extraction fails.
+</ResponseField>
+
+## Basic Usage
+
+```python
+from scrapegraphai.graphs import XMLScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o",
+        "api_key": "your-api-key"
+    }
+}
+
+xml_scraper = XMLScraperGraph(
+    prompt="List all the attractions in Chioggia.",
+    source="data/chioggia.xml",
+    config=graph_config
+)
+
+result = xml_scraper.run()
+print(result)
+```
+
+## Example XML File
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<city>
+  <name>Chioggia</name>
+  <country>Italy</country>
+  <population>50000</population>
+  <attractions>
+    <attraction id="1">
+      <name>Piazza Vigo</name>
+      <type>square</type>
+      <description>Main square with historic buildings</description>
+      <rating>4.5</rating>
+      <hours>
+        <open>24/7</open>
+      </hours>
+    </attraction>
+    <attraction id="2">
+      <name>Museo della Laguna Sud</name>
+      <type>museum</type>
+      <description>Museum showcasing local history</description>
+      <rating>4.2</rating>
+      <hours>
+        <open>09:00</open>
+        <close>18:00</close>
+      </hours>
+    </attraction>
+    <attraction id="3">
+      <name>Cathedral of Santa Maria</name>
+      <type>church</type>
+      <description>Historic cathedral from the 11th century</description>
+      <rating>4.7</rating>
+    </attraction>
+  </attractions>
+  <restaurants>
+    <restaurant id="1">
+      <name>Ristorante El Gato</name>
+      <cuisine>Italian</cuisine>
+      <price_range>$$</price_range>
+      <rating>4.6</rating>
+    </restaurant>
+  </restaurants>
+</city>
+```
+
+## Query Examples
+
+### Simple Extraction
+
+```python
+xml_scraper = XMLScraperGraph(
+    prompt="What is the population of the city?",
+    source="data/chioggia.xml",
+    config=graph_config
+)
+
+result = xml_scraper.run()
+# Output: "The population is 50,000"
+```
+
+### Nested Element Access
+
+```python
+xml_scraper = XMLScraperGraph(
+    prompt="List all museum attractions with their opening hours",
+    source="data/chioggia.xml",
+    config=graph_config
+)
+
+result = xml_scraper.run()
+```
+
+### Attribute Extraction
+
+```python
+xml_scraper = XMLScraperGraph(
+    prompt="Extract all attraction IDs and names",
+    source="data/chioggia.xml",
+    config=graph_config
+)
+
+result = xml_scraper.run()
+```
+
+### Filtering
+
+```python
+xml_scraper = XMLScraperGraph(
+    prompt="List all attractions with a rating above 4.5",
+    source="data/chioggia.xml",
+    config=graph_config
+)
+
+result = xml_scraper.run()
+```
+
+## Structured Output with Schema
+
+```python
+from pydantic import BaseModel, Field
+from typing import List, Optional
+
+class Attraction(BaseModel):
+    name: str = Field(description="Attraction name")
+    type: str = Field(description="Type of attraction")
+    rating: float = Field(description="Rating score")
+    description: str = Field(description="Description")
+
+class AttractionList(BaseModel):
+    attractions: List[Attraction]
+    count: int = Field(description="Total number of attractions")
+    average_rating: float = Field(description="Average rating")
+
+xml_scraper = XMLScraperGraph(
+    prompt="Extract all attractions with their details and calculate average rating",
+    source="data/chioggia.xml",
+    config=graph_config,
+    schema=AttractionList
+)
+
+result = xml_scraper.run()
+# Result is automatically validated against the schema
+```
+
+## Complex XML Structures
+
+### RSS Feed
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Tech News</title>
+    <link>https://example.com</link>
+    <description>Latest technology news</description>
+    <item>
+      <title>AI Breakthrough Announced</title>
+      <link>https://example.com/ai-news</link>
+      <pubDate>Mon, 06 Mar 2026 10:00:00 GMT</pubDate>
+      <description>Scientists achieve major AI milestone</description>
+      <category>Artificial Intelligence</category>
+    </item>
+    <item>
+      <title>New Programming Language Released</title>
+      <link>https://example.com/lang-news</link>
+      <pubDate>Sun, 05 Mar 2026 15:30:00 GMT</pubDate>
+      <description>Developer community welcomes innovation</description>
+      <category>Software Development</category>
+    </item>
+  </channel>
+</rss>
+```
+
+```python
+xml_scraper = XMLScraperGraph(
+    prompt="Summarize the latest tech news from the RSS feed",
+    source="data/rss_feed.xml",
+    config=graph_config
+)
+
+result = xml_scraper.run()
+```
+
+### Configuration Files
+
+```xml
+<?xml version="1.0"?>
+<configuration>
+  <database>
+    <host>localhost</host>
+    <port>5432</port>
+    <name>myapp_db</name>
+    <credentials>
+      <username>admin</username>
+    </credentials>
+  </database>
+  <features>
+    <feature name="analytics" enabled="true">
+      <setting key="tracking_id">UA-12345</setting>
+    </feature>
+    <feature name="payments" enabled="false"/>
+  </features>
+</configuration>
+```
+
+```python
+xml_scraper = XMLScraperGraph(
+    prompt="List all enabled features with their settings",
+    source="config/app_config.xml",
+    config=graph_config
+)
+
+result = xml_scraper.run()
+```
+
+## Multiple XML Files
+
+```python
+# Directory structure:
+# xml_data/
+#   ├── products_2023.xml
+#   ├── products_2024.xml
+#   └── products_2025.xml
+
+xml_scraper = XMLScraperGraph(
+    prompt="Count total products across all years",
+    source="./xml_data/",  # Directory path
+    config=graph_config
+)
+
+result = xml_scraper.run()
+# Automatically processes all XML files in the directory
+```
+
+## Graph Workflow
+
+The XMLScraperGraph uses a simple node pipeline:
+
+```
+FetchNode → GenerateAnswerNode
+```
+
+1. **FetchNode**: Loads and parses the XML file(s)
+2. **GenerateAnswerNode**: Processes the XML data and answers the query
+
+## Advanced Usage
+
+### With Additional Context
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "additional_info": """
+        This XML contains product catalog data.
+        Prices are in EUR. Focus on in-stock items only.
+    """
+}
+
+xml_scraper = XMLScraperGraph(
+    prompt="List available products under 100 EUR",
+    source="data/catalog.xml",
+    config=config
+)
+```
+
+### SOAP Response Analysis
+
+```xml
+<?xml version="1.0"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <GetProductResponse>
+      <Product>
+        <ID>12345</ID>
+        <Name>Widget</Name>
+        <Price currency="USD">29.99</Price>
+        <Stock>150</Stock>
+      </Product>
+    </GetProductResponse>
+  </soap:Body>
+</soap:Envelope>
+```
+
+```python
+xml_scraper = XMLScraperGraph(
+    prompt="Extract product information from the SOAP response",
+    source="data/soap_response.xml",
+    config=graph_config
+)
+
+result = xml_scraper.run()
+```
+
+## Use Cases
+
+1. **RSS Feed Analysis**: Parse and analyze RSS feeds
+2. **Configuration Management**: Extract information from XML config files
+3. **SOAP API Responses**: Parse SOAP web service responses
+4. **Data Migration**: Extract data from XML exports
+5. **Document Processing**: Query XML documents
+
+## Example: RSS News Aggregation
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+from datetime import datetime
+
+class NewsItem(BaseModel):
+    title: str
+    link: str
+    published: str
+    category: str
+    summary: str
+
+class NewsSummary(BaseModel):
+    articles: List[NewsItem]
+    total_count: int
+    categories: List[str]
+    summary: str = Field(description="Overall summary of the news")
+
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "additional_info": "Focus on technology and AI related news"
+}
+
+xml_scraper = XMLScraperGraph(
+    prompt="""Extract all news items and provide:
+    1. List of articles with details
+    2. Total count
+    3. All categories
+    4. Overall summary of the news
+    """,
+    source="data/rss_feed.xml",
+    config=config,
+    schema=NewsSummary
+)
+
+result = xml_scraper.run()
+```
+
+## Accessing Results
+
+```python
+result = xml_scraper.run()
+
+# Get the answer
+print("Answer:", result)
+
+# Access full state
+final_state = xml_scraper.get_state()
+raw_data = final_state.get("doc")
+answer = final_state.get("answer")
+
+print(f"Processed XML data size: {len(str(raw_data))} characters")
+
+# Execution info
+exec_info = xml_scraper.get_execution_info()
+for node_info in exec_info:
+    print(f"{node_info['node_name']}: {node_info['exec_time']:.2f}s")
+    print(f"Tokens: {node_info['total_tokens']}")
+    print(f"Cost: ${node_info['total_cost_USD']:.4f}")
+```
+
+## Working with Namespaces
+
+```xml
+<?xml version="1.0"?>
+<root xmlns:app="http://example.com/app">
+  <app:products>
+    <app:product id="1">
+      <app:name>Widget</app:name>
+      <app:price>29.99</app:price>
+    </app:product>
+  </app:products>
+</root>
+```
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "additional_info": "The XML uses namespaces. Focus on product elements."
+}
+
+xml_scraper = XMLScraperGraph(
+    prompt="Extract all product names and prices",
+    source="data/namespaced.xml",
+    config=config
+)
+```
+
+## Error Handling
+
+```python
+import xml.etree.ElementTree as ET
+
+try:
+    # Validate XML first
+    ET.parse("data/file.xml")
+    
+    result = xml_scraper.run()
+    
+    if result == "No answer found.":
+        print("Failed to extract information from XML")
+    else:
+        print(f"Success: {result}")
+        
+except ET.ParseError as e:
+    print(f"Invalid XML format: {e}")
+except FileNotFoundError:
+    print("XML file not found")
+except Exception as e:
+    print(f"Error during processing: {e}")
+```
+
+## Tips for Better Results
+
+1. **Understand structure**: Know your XML structure before querying
+2. **Be specific**: Clear queries get better answers
+3. **Use schema**: Define schemas for type-safe output
+4. **Handle namespaces**: Mention if XML uses namespaces
+5. **Provide context**: Use `additional_info` for domain knowledge
+6. **Test queries**: Start simple and iterate
+7. **Validate XML**: Ensure XML is well-formed
+
+## XML Format Considerations
+
+| Aspect | Consideration |
+|--------|---------------|
+| **Attributes vs Elements** | LLM can handle both |
+| **Namespaces** | Provide context in prompt |
+| **CDATA** | Automatically handled |
+| **Comments** | Usually ignored |
+| **Deep Nesting** | May increase token usage |
+
+## Performance Considerations
+
+1. **File Size**: Large XML files may exceed LLM context limits
+2. **Nesting Depth**: Deeply nested structures take more tokens
+3. **Multiple Files**: Processing multiple files increases execution time
+4. **Namespaces**: Complex namespaces may require more context
+
+## Related Graphs
+
+- [XMLScraperMultiGraph](/api/graphs/multi-graphs#xmlscrapermultigraph) - Process multiple XML files separately
+- [JSONScraperGraph](/api/graphs/json-scraper-graph) - Query JSON files
+- [CSVScraperGraph](/api/graphs/csv-scraper-graph) - Query CSV files

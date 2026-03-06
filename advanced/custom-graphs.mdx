@@ -1,0 +1,390 @@
+---
+title: 'Building Custom Graphs'
+description: 'Learn how to build custom web scraping graphs from scratch using BaseGraph and GraphBuilder'
+icon: 'diagram-project'
+---
+
+## Overview
+
+ScrapeGraphAI allows you to build custom scraping pipelines by composing nodes into directed acyclic graphs (DAGs). This gives you complete control over the scraping workflow, enabling you to create specialized pipelines tailored to your specific needs.
+
+## Using BaseGraph
+
+The `BaseGraph` class is the foundation for creating custom scraping workflows. It manages the execution flow of interconnected nodes.
+
+### Basic Structure
+
+<Steps>
+  <Step title="Import Required Modules">
+    ```python
+    from scrapegraphai.graphs import BaseGraph
+    from scrapegraphai.nodes import (
+        FetchNode,
+        ParseNode,
+        RAGNode,
+        GenerateAnswerNode,
+        RobotsNode
+    )
+    from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+    ```
+  </Step>
+
+  <Step title="Configure the LLM">
+    ```python
+    graph_config = {
+        "llm": {
+            "api_key": "your-api-key",
+            "model": "gpt-4o",
+        },
+    }
+
+    llm_model = ChatOpenAI(graph_config["llm"])
+    embedder = OpenAIEmbeddings(api_key=llm_model.openai_api_key)
+    ```
+  </Step>
+
+  <Step title="Define Nodes">
+    ```python
+    robot_node = RobotsNode(
+        input="url",
+        output=["is_scrapable"],
+        node_config={
+            "llm_model": llm_model,
+            "force_scraping": True,
+            "verbose": True,
+        },
+    )
+
+    fetch_node = FetchNode(
+        input="url | local_dir",
+        output=["doc"],
+        node_config={
+            "verbose": True,
+            "headless": True,
+        },
+    )
+
+    parse_node = ParseNode(
+        input="doc",
+        output=["parsed_doc"],
+        node_config={
+            "chunk_size": 4096,
+            "verbose": True,
+        },
+    )
+
+    rag_node = RAGNode(
+        input="user_prompt & (parsed_doc | doc)",
+        output=["relevant_chunks"],
+        node_config={
+            "llm_model": llm_model,
+            "embedder_model": embedder,
+            "verbose": True,
+        },
+    )
+
+    generate_answer_node = GenerateAnswerNode(
+        input="user_prompt & (relevant_chunks | parsed_doc | doc)",
+        output=["answer"],
+        node_config={
+            "llm_model": llm_model,
+            "verbose": True,
+        },
+    )
+    ```
+  </Step>
+
+  <Step title="Create the Graph">
+    ```python
+    graph = BaseGraph(
+        nodes=[
+            robot_node,
+            fetch_node,
+            parse_node,
+            rag_node,
+            generate_answer_node,
+        ],
+        edges=[
+            (robot_node, fetch_node),
+            (fetch_node, parse_node),
+            (parse_node, rag_node),
+            (rag_node, generate_answer_node),
+        ],
+        entry_point=robot_node,
+    )
+    ```
+  </Step>
+
+  <Step title="Execute the Graph">
+    ```python
+    result, execution_info = graph.execute({
+        "user_prompt": "Describe the content",
+        "url": "https://example.com/"
+    })
+
+    answer = result.get("answer", "No answer found.")
+    print(answer)
+    ```
+  </Step>
+</Steps>
+
+### Node Configuration
+
+#### Input Expressions
+
+Nodes use boolean expressions to define their input requirements:
+
+- **Single input**: `input="url"`
+- **OR logic**: `input="url | local_dir"` (accepts either)
+- **AND logic**: `input="user_prompt & parsed_doc"` (requires both)
+- **Complex**: `input="user_prompt & (relevant_chunks | parsed_doc | doc)"`
+
+#### Node Config Dictionary
+
+Each node accepts a `node_config` dictionary for customization:
+
+```python
+node_config = {
+    "llm_model": llm_model,        # LLM instance
+    "embedder_model": embedder,    # Embedder instance
+    "verbose": True,               # Enable logging
+    "chunk_size": 4096,            # Text chunk size
+    "headless": True,              # Browser mode
+    "timeout": 30,                 # Request timeout
+}
+```
+
+### Graph Execution
+
+The `execute()` method returns a tuple:
+
+```python
+state, execution_info = graph.execute(initial_state)
+```
+
+- **state**: Final state dictionary with all outputs
+- **execution_info**: List of execution metrics per node
+
+<Accordion title="View execution_info structure">
+```python
+[
+    {
+        "node_name": "Fetch",
+        "total_tokens": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "successful_requests": 0,
+        "total_cost_USD": 0.0,
+        "exec_time": 1.234
+    },
+    # ... more nodes
+    {
+        "node_name": "TOTAL RESULT",
+        "total_tokens": 1523,
+        "prompt_tokens": 1200,
+        "completion_tokens": 323,
+        "successful_requests": 3,
+        "total_cost_USD": 0.045,
+        "exec_time": 5.678
+    }
+]
+```
+</Accordion>
+
+## Using GraphBuilder
+
+The `GraphBuilder` class uses natural language to automatically generate graph configurations.
+
+### Dynamic Graph Creation
+
+```python
+from scrapegraphai.builders import GraphBuilder
+
+graph_config = {
+    "llm": {
+        "api_key": "your-api-key",
+        "model": "gpt-4o",
+        "temperature": 0,
+    },
+}
+
+# Create builder with natural language prompt
+builder = GraphBuilder(
+    prompt="I need to scrape product prices and descriptions from an e-commerce site",
+    config=graph_config
+)
+
+# Generate graph configuration
+graph_json = builder.build_graph()
+```
+
+### Visualizing Graphs
+
+Convert your graph to a visual diagram:
+
+```python
+from scrapegraphai.builders import GraphBuilder
+
+# Generate visualization
+graph_diagram = GraphBuilder.convert_json_to_graphviz(
+    graph_json,
+    format="pdf"  # or "png", "svg"
+)
+
+# Render to file
+graph_diagram.render("my_scraping_graph")
+```
+
+<Note>
+Graphviz must be installed on your system. Download from [graphviz.org/download](https://graphviz.org/download/).
+</Note>
+
+## Adding Nodes Dynamically
+
+You can append nodes to an existing graph:
+
+```python
+from scrapegraphai.nodes import DescriptionNode
+
+# Create graph
+graph = BaseGraph(
+    nodes=[fetch_node, parse_node],
+    edges=[(fetch_node, parse_node)],
+    entry_point=fetch_node
+)
+
+# Add new node
+description_node = DescriptionNode(
+    input="parsed_doc",
+    output=["description"],
+    node_config={"llm_model": llm_model}
+)
+
+graph.append_node(description_node)
+```
+
+<Warning>
+Node names must be unique within a graph. The `append_node()` method will raise a `ValueError` if a node with the same name already exists.
+</Warning>
+
+## Complete Example
+
+Here's a full example combining all concepts:
+
+```python ~/workspace/source/examples/custom_graph/openai/custom_graph_openai.py
+import os
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from scrapegraphai.graphs import BaseGraph
+from scrapegraphai.nodes import (
+    FetchNode,
+    GenerateAnswerNode,
+    ParseNode,
+    RAGNode,
+    RobotsNode,
+)
+
+load_dotenv()
+
+# Configuration
+openai_key = os.getenv("OPENAI_APIKEY")
+graph_config = {
+    "llm": {
+        "api_key": openai_key,
+        "model": "gpt-4o",
+    },
+}
+
+# Initialize models
+llm_model = ChatOpenAI(graph_config["llm"])
+embedder = OpenAIEmbeddings(api_key=llm_model.openai_api_key)
+
+# Define nodes
+robot_node = RobotsNode(
+    input="url",
+    output=["is_scrapable"],
+    node_config={
+        "llm_model": llm_model,
+        "force_scraping": True,
+        "verbose": True,
+    },
+)
+
+fetch_node = FetchNode(
+    input="url | local_dir",
+    output=["doc"],
+    node_config={
+        "verbose": True,
+        "headless": True,
+    },
+)
+
+parse_node = ParseNode(
+    input="doc",
+    output=["parsed_doc"],
+    node_config={
+        "chunk_size": 4096,
+        "verbose": True,
+    },
+)
+
+rag_node = RAGNode(
+    input="user_prompt & (parsed_doc | doc)",
+    output=["relevant_chunks"],
+    node_config={
+        "llm_model": llm_model,
+        "embedder_model": embedder,
+        "verbose": True,
+    },
+)
+
+generate_answer_node = GenerateAnswerNode(
+    input="user_prompt & (relevant_chunks | parsed_doc | doc)",
+    output=["answer"],
+    node_config={
+        "llm_model": llm_model,
+        "verbose": True,
+    },
+)
+
+# Create graph
+graph = BaseGraph(
+    nodes=[
+        robot_node,
+        fetch_node,
+        parse_node,
+        rag_node,
+        generate_answer_node,
+    ],
+    edges=[
+        (robot_node, fetch_node),
+        (fetch_node, parse_node),
+        (parse_node, rag_node),
+        (rag_node, generate_answer_node),
+    ],
+    entry_point=robot_node,
+)
+
+# Execute
+result, execution_info = graph.execute({
+    "user_prompt": "Describe the content",
+    "url": "https://example.com/"
+})
+
+result = result.get("answer", "No answer found.")
+print(result)
+```
+
+## Best Practices
+
+1. **Entry Point**: Always ensure the first node in the `nodes` list matches the `entry_point` parameter
+2. **Error Handling**: Wrap graph execution in try-except blocks to handle node failures
+3. **Verbose Mode**: Enable `verbose: True` during development for detailed logging
+4. **Chunk Size**: Adjust `chunk_size` based on your LLM's token limits
+5. **Timeouts**: Set appropriate `timeout` values to prevent hanging requests
+
+## Next Steps
+
+- Learn how to [create custom nodes](/advanced/custom-nodes)
+- Explore [Burr integration](/advanced/burr-integration) for advanced workflow tracking
+- Check out [troubleshooting tips](/advanced/troubleshooting) for common issues

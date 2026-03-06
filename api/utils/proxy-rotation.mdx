@@ -1,0 +1,348 @@
+---
+title: "Proxy Rotation"
+description: "Utilities for rotating and managing proxy servers"
+---
+
+The proxy rotation module provides utilities for searching, validating, and managing proxy servers for web scraping operations.
+
+## Type Definitions
+
+### ProxyBrokerCriteria
+
+```python
+class ProxyBrokerCriteria(TypedDict, total=False):
+    anonymous: bool
+    countryset: Set[str]
+    secure: bool
+    timeout: float
+    search_outside_if_empty: bool
+```
+
+Criteria for searching proxy servers.
+
+### ProxySettings
+
+```python
+class ProxySettings(TypedDict, total=False):
+    server: str
+    bypass: str
+    username: str
+    password: str
+```
+
+Proxy server configuration settings.
+
+### Proxy
+
+```python
+class Proxy(ProxySettings):
+    criteria: ProxyBrokerCriteria
+```
+
+Complete proxy configuration including server settings and search criteria.
+
+## Functions
+
+### search_proxy_servers
+
+```python
+search_proxy_servers(
+    anonymous: bool = True,
+    countryset: Optional[Set[str]] = None,
+    secure: bool = False,
+    timeout: float = 5.0,
+    max_shape: int = 5,
+    search_outside_if_empty: bool = True,
+) -> List[str]
+```
+
+Search for proxy servers that match the specified broker criteria.
+
+<ParamField path="anonymous" type="bool" default="True">
+  Whether proxy servers should have minimum level-1 anonymity.
+</ParamField>
+
+<ParamField path="countryset" type="Optional[Set[str]]" default="None">
+  Set of country codes for admissible proxy server locations (e.g., {"US", "GB", "CA"}).
+</ParamField>
+
+<ParamField path="secure" type="bool" default="False">
+  Whether proxy servers should support HTTPS. Defaults to HTTP.
+</ParamField>
+
+<ParamField path="timeout" type="float" default="5.0">
+  The maximum timeout for proxy responses in seconds.
+</ParamField>
+
+<ParamField path="max_shape" type="int" default="5">
+  The maximum number of proxy servers to return.
+</ParamField>
+
+<ParamField path="search_outside_if_empty" type="bool" default="True">
+  Whether to extend the countryset search if no proxies are found in specified countries.
+</ParamField>
+
+<ResponseField name="proxies" type="List[str]">
+  A list of proxy server URLs matching the criteria (e.g., ["http://103.10.63.135:8080", "http://113.20.31.250:8080"]).
+</ResponseField>
+
+#### Example: Basic Usage
+
+```python
+from scrapegraphai.utils import search_proxy_servers
+
+# Search for 3 anonymous proxies
+proxies = search_proxy_servers(
+    anonymous=True,
+    max_shape=3,
+    timeout=5.0
+)
+
+print(f"Found {len(proxies)} proxies:")
+for proxy in proxies:
+    print(f"  - {proxy}")
+```
+
+#### Example: Country-Specific Proxies
+
+```python
+from scrapegraphai.utils import search_proxy_servers
+
+# Search for proxies in specific countries
+proxies = search_proxy_servers(
+    anonymous=True,
+    countryset={"US", "GB", "CA"},
+    secure=True,  # HTTPS proxies
+    timeout=3.0,
+    max_shape=5
+)
+
+for proxy in proxies:
+    print(proxy)
+```
+
+#### Example: With ScrapeGraphAI
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+from scrapegraphai.utils import search_proxy_servers
+
+# Get a list of proxies
+proxies = search_proxy_servers(
+    anonymous=True,
+    countryset={"US"},
+    max_shape=1
+)
+
+# Use the first proxy in your scraper configuration
+graph_config = {
+    "llm": {"model": "openai/gpt-4o-mini"},
+    "loader_kwargs": {
+        "proxy": {
+            "server": proxies[0],
+        }
+    }
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Extract product information",
+    source="https://example.com",
+    config=graph_config,
+)
+
+result = smart_scraper.run()
+```
+
+### parse_or_search_proxy
+
+```python
+parse_or_search_proxy(proxy: Proxy) -> ProxySettings
+```
+
+Parses a proxy configuration or searches for a matching one via broker. This function automatically determines whether to parse an existing proxy configuration or search for a new one.
+
+<ParamField path="proxy" type="Proxy" required>
+  The proxy configuration to parse or search for. Must include a "server" field.
+</ParamField>
+
+<ResponseField name="settings" type="ProxySettings">
+  A Playwright-compliant proxy configuration ready to use.
+</ResponseField>
+
+#### Example: Parse Existing Proxy
+
+```python
+from scrapegraphai.utils import parse_or_search_proxy
+
+# Parse a known proxy server
+proxy_config = {
+    "server": "http://103.10.63.135:8080",
+    "username": "myuser",
+    "password": "mypass"
+}
+
+parsed_proxy = parse_or_search_proxy(proxy_config)
+print(parsed_proxy)
+# Output: {'server': 'http://103.10.63.135:8080', 'username': 'myuser', 'password': 'mypass'}
+```
+
+#### Example: Search for Proxy via Broker
+
+```python
+from scrapegraphai.utils import parse_or_search_proxy
+
+# Search for a proxy using broker criteria
+proxy_config = {
+    "server": "broker",
+    "criteria": {
+        "anonymous": True,
+        "countryset": {"US", "GB"},
+        "secure": True,
+        "timeout": 5.0
+    }
+}
+
+proxy_settings = parse_or_search_proxy(proxy_config)
+print(proxy_settings)
+# Output: {'server': 'http://123.45.67.89:8080'}
+```
+
+### is_ipv4_address
+
+```python
+is_ipv4_address(address: str) -> bool
+```
+
+Check if a given address conforms to a valid IPv4 address format.
+
+<ParamField path="address" type="str" required>
+  The address string to validate.
+</ParamField>
+
+<ResponseField name="is_valid" type="bool">
+  True if the address is a valid IPv4 address, False otherwise.
+</ResponseField>
+
+#### Example
+
+```python
+from scrapegraphai.utils import is_ipv4_address
+
+print(is_ipv4_address("192.168.1.1"))        # True
+print(is_ipv4_address("256.1.1.1"))          # False
+print(is_ipv4_address("example.com"))        # False
+print(is_ipv4_address("103.10.63.135"))      # True
+```
+
+## Complete Example: Rotating Proxies
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+from scrapegraphai.utils import search_proxy_servers
+import random
+
+# Get a pool of proxies
+proxy_pool = search_proxy_servers(
+    anonymous=True,
+    countryset={"US", "GB", "CA"},
+    secure=True,
+    max_shape=10,
+    timeout=5.0
+)
+
+print(f"Proxy pool contains {len(proxy_pool)} proxies")
+
+# Function to scrape with random proxy
+def scrape_with_rotation(url: str, prompt: str):
+    # Select a random proxy from the pool
+    proxy = random.choice(proxy_pool)
+    
+    graph_config = {
+        "llm": {"model": "openai/gpt-4o-mini"},
+        "loader_kwargs": {
+            "proxy": {"server": proxy}
+        }
+    }
+    
+    smart_scraper = SmartScraperGraph(
+        prompt=prompt,
+        source=url,
+        config=graph_config,
+    )
+    
+    print(f"Using proxy: {proxy}")
+    return smart_scraper.run()
+
+# Scrape multiple pages with rotation
+urls = [
+    "https://example.com/page1",
+    "https://example.com/page2",
+    "https://example.com/page3",
+]
+
+results = []
+for url in urls:
+    result = scrape_with_rotation(url, "Extract main content")
+    results.append(result)
+    print(f"Scraped {url}")
+
+print(f"Total results: {len(results)}")
+```
+
+## Error Handling
+
+```python
+from scrapegraphai.utils import search_proxy_servers
+from fp.errors import FreeProxyException
+
+try:
+    proxies = search_proxy_servers(
+        anonymous=True,
+        countryset={"XX"},  # Invalid country code
+        max_shape=5,
+        search_outside_if_empty=False  # Don't search outside
+    )
+except FreeProxyException as e:
+    print(f"Failed to find proxies: {e}")
+    # Fallback: try without country restriction
+    proxies = search_proxy_servers(
+        anonymous=True,
+        max_shape=5
+    )
+```
+
+## Best Practices
+
+1. **Proxy Pool Management**: Create a pool of proxies and rotate through them to avoid rate limiting.
+
+2. **Timeout Configuration**: Set appropriate timeouts based on your needs:
+   ```python
+   # Fast proxies for quick operations
+   proxies = search_proxy_servers(timeout=2.0)
+   
+   # More lenient for slower connections
+   proxies = search_proxy_servers(timeout=10.0)
+   ```
+
+3. **Authentication**: Always provide username and password together:
+   ```python
+   proxy_config = {
+       "server": "http://proxy.example.com:8080",
+       "username": "user",
+       "password": "pass"  # Both must be provided
+   }
+   ```
+
+4. **Country Selection**: Choose countries closer to your target website for better performance:
+   ```python
+   # For US-based websites
+   proxies = search_proxy_servers(countryset={"US", "CA"})
+   
+   # For EU-based websites
+   proxies = search_proxy_servers(countryset={"GB", "DE", "FR"})
+   ```
+
+5. **Secure Proxies**: Use HTTPS proxies for sensitive operations:
+   ```python
+   proxies = search_proxy_servers(secure=True, anonymous=True)
+   ```

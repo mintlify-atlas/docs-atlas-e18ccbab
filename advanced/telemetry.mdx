@@ -1,0 +1,382 @@
+---
+title: 'Telemetry'
+description: 'Understand ScrapeGraphAI telemetry system and how to opt-out'
+icon: 'chart-line'
+---
+
+## Overview
+
+ScrapeGraphAI includes an optional telemetry system that helps the development team understand usage patterns and improve the library. This page explains what data is collected, how to opt-out, and privacy considerations.
+
+## What Data is Collected
+
+The telemetry system collects anonymous usage data when graphs are executed:
+
+```python ~/workspace/source/scrapegraphai/telemetry/telemetry.py
+{
+    "user_prompt": "Extract product information",
+    "json_schema": "{...}",
+    "website_content": "<extracted content>",
+    "llm_response": "{...}",
+    "llm_model": "gpt-4o",
+    "url": "https://example.com"
+}
+```
+
+### Data Points
+
+<Accordion title="Collected Data Details">
+- **user_prompt**: The prompt you provide to extract data
+- **json_schema**: Schema used for structured extraction (if provided)
+- **website_content**: The content extracted from the website
+- **llm_response**: The LLM's generated response
+- **llm_model**: Name of the LLM model used
+- **url**: The source URL being scraped
+- **anonymous_id**: A random UUID (not linked to your identity)
+- **version**: ScrapeGraphAI library version
+</Accordion>
+
+### What is NOT Collected
+
+- Personal identifying information (PII)
+- API keys or credentials
+- IP addresses
+- System information
+- Local file paths
+- Error details or stack traces
+
+<Note>
+Telemetry data is sent asynchronously in a background thread and does not impact scraping performance. Failed telemetry sends are silently ignored.
+</Note>
+
+## How to Opt-Out
+
+There are three ways to disable telemetry:
+
+### Method 1: Environment Variable (Recommended)
+
+Set the environment variable before running your script:
+
+```bash
+export SCRAPEGRAPHAI_TELEMETRY_ENABLED=false
+```
+
+Or in your Python code:
+
+```python
+import os
+os.environ["SCRAPEGRAPHAI_TELEMETRY_ENABLED"] = "false"
+
+# Import after setting env var
+from scrapegraphai.graphs import SmartScraperGraph
+```
+
+### Method 2: Configuration File
+
+Create or edit `~/.scrapegraphai.conf`:
+
+```ini ~/.scrapegraphai.conf
+[DEFAULT]
+telemetry_enabled = false
+anonymous_id = your-existing-uuid
+```
+
+<Note>
+The anonymous_id is automatically generated on first use. You can keep it or remove it when disabling telemetry.
+</Note>
+
+### Method 3: Programmatic
+
+Disable telemetry in your code:
+
+```python
+from scrapegraphai.telemetry import disable_telemetry
+
+# Call before creating any graphs
+disable_telemetry()
+
+from scrapegraphai.graphs import SmartScraperGraph
+
+# Telemetry is now disabled
+scraper = SmartScraperGraph(...)
+```
+
+## Telemetry Implementation
+
+### Rate Limiting
+
+Telemetry has built-in rate limiting:
+
+```python
+MAX_COUNT_SESSION = 1000
+
+def is_telemetry_enabled() -> bool:
+    if g_telemetry_enabled:
+        global CALL_COUNTER
+        CALL_COUNTER += 1
+        if CALL_COUNTER > MAX_COUNT_SESSION:
+            return False  # Stop after 1000 calls per session
+        return True
+    return False
+```
+
+### Conditional Collection
+
+Telemetry only sends data when all required fields are present:
+
+```python
+# Telemetry requires all of these
+required_fields = [
+    prompt,
+    json_schema,
+    content,
+    llm_response,
+    url
+]
+
+if not all(required_fields):
+    # Telemetry is skipped
+    return None
+```
+
+### Error Handling
+
+Telemetry never crashes your application:
+
+```python
+def log_graph_execution(...):
+    if not is_telemetry_enabled():
+        return  # Silently skip
+
+    if error_node is not None:
+        return  # Don't send error cases
+
+    payload = _build_telemetry_payload(...)
+    if payload is None:
+        logger.debug("Telemetry skipped: missing required fields")
+        return
+
+    _send_telemetry_threaded(payload)  # Non-blocking
+```
+
+## Privacy Considerations
+
+### Data Transmission
+
+- Sent over HTTPS to `https://sgai-oss-tracing.onrender.com/v1/telemetry`
+- 2-second timeout prevents hanging
+- Failures are logged but don't affect execution
+
+### Data Storage
+
+The anonymous ID is stored locally in `~/.scrapegraphai.conf`:
+
+```python
+DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.scrapegraphai.conf")
+
+def _load_config(config_location: str):
+    config = configparser.ConfigParser()
+    # Generate unique ID if not exists
+    if "anonymous_id" not in config["DEFAULT"]:
+        config["DEFAULT"]["anonymous_id"] = str(uuid.uuid4())
+```
+
+This ID:
+- Is randomly generated
+- Is not linked to your identity
+- Helps group sessions for understanding usage patterns
+- Can be removed by deleting the config file
+
+### Sensitive Data Protection
+
+<Warning>
+If you're scraping sensitive content, we strongly recommend disabling telemetry:
+
+```python
+import os
+os.environ["SCRAPEGRAPHAI_TELEMETRY_ENABLED"] = "false"
+```
+
+This prevents any scraped content from being transmitted.
+</Warning>
+
+## Verifying Telemetry Status
+
+Check if telemetry is enabled:
+
+```python
+from scrapegraphai.telemetry import is_telemetry_enabled
+
+if is_telemetry_enabled():
+    print("Telemetry is ENABLED")
+else:
+    print("Telemetry is DISABLED")
+```
+
+View telemetry configuration:
+
+```python
+import configparser
+import os
+
+config_path = os.path.expanduser("~/.scrapegraphai.conf")
+config = configparser.ConfigParser()
+config.read(config_path)
+
+print(f"Telemetry enabled: {config.get('DEFAULT', 'telemetry_enabled', fallback='true')}")
+print(f"Anonymous ID: {config.get('DEFAULT', 'anonymous_id', fallback='not set')}")
+```
+
+## Docker and Production Environments
+
+### Docker
+
+Disable telemetry in Dockerfile:
+
+```dockerfile
+FROM python:3.11
+
+ENV SCRAPEGRAPHAI_TELEMETRY_ENABLED=false
+
+RUN pip install scrapegraphai
+
+COPY . /app
+WORKDIR /app
+
+CMD ["python", "scraper.py"]
+```
+
+### Docker Compose
+
+```yaml docker-compose.yml
+version: '3.8'
+services:
+  scraper:
+    build: .
+    environment:
+      - SCRAPEGRAPHAI_TELEMETRY_ENABLED=false
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+```
+
+### Kubernetes
+
+```yaml deployment.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scraper-config
+data:
+  SCRAPEGRAPHAI_TELEMETRY_ENABLED: "false"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scraper
+spec:
+  template:
+    spec:
+      containers:
+      - name: scraper
+        image: my-scraper:latest
+        envFrom:
+        - configMapRef:
+            name: scraper-config
+```
+
+### CI/CD
+
+```yaml .github/workflows/scrape.yml
+name: Run Scraper
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install scrapegraphai
+      - name: Run scraper
+        env:
+          SCRAPEGRAPHAI_TELEMETRY_ENABLED: false
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scraper.py
+```
+
+## Complete Opt-Out Example
+
+Here's a complete script with telemetry disabled:
+
+```python scraper_no_telemetry.py
+import os
+from dotenv import load_dotenv
+
+# IMPORTANT: Disable telemetry BEFORE importing scrapegraphai
+os.environ["SCRAPEGRAPHAI_TELEMETRY_ENABLED"] = "false"
+
+from scrapegraphai.graphs import SmartScraperGraph
+from scrapegraphai.telemetry import is_telemetry_enabled
+
+load_dotenv()
+
+# Verify telemetry is disabled
+print(f"Telemetry enabled: {is_telemetry_enabled()}")  # Should print: False
+
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o",
+        "api_key": os.getenv("OPENAI_API_KEY"),
+    },
+    "verbose": True,
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract product information",
+    source="https://example.com/products",
+    config=graph_config,
+)
+
+result = scraper.run()
+print(result)
+
+# No telemetry data is sent
+```
+
+## FAQ
+
+<Accordion title="Is telemetry enabled by default?">
+Yes, telemetry is enabled by default but can be easily disabled using any of the methods above.
+</Accordion>
+
+<Accordion title="Can telemetry identify me?">
+No. Only an anonymous random UUID is used, which is not linked to any personal information.
+</Accordion>
+
+<Accordion title="Does telemetry slow down scraping?">
+No. Telemetry is sent asynchronously in a background thread with a 2-second timeout, and failures are ignored.
+</Accordion>
+
+<Accordion title="Where is telemetry data sent?">
+Data is sent to `https://sgai-oss-tracing.onrender.com/v1/telemetry` over HTTPS.
+</Accordion>
+
+<Accordion title="Can I see what data is being sent?">
+Yes, you can inspect the payload by checking the source code at ~/workspace/source/scrapegraphai/telemetry/telemetry.py:80
+</Accordion>
+
+<Accordion title="Does disabling telemetry affect functionality?">
+No. Disabling telemetry has no impact on ScrapeGraphAI's functionality. All features work identically.
+</Accordion>
+
+## Next Steps
+
+- Review [troubleshooting tips](/advanced/troubleshooting) for common issues
+- Build [custom graphs](/advanced/custom-graphs) with privacy in mind
+- Explore [integrations](/advanced/integrations) for production deployments

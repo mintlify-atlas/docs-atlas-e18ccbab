@@ -1,0 +1,258 @@
+---
+title: "Logging"
+description: "Centralized logging system for ScrapeGraphAI"
+---
+
+The logging module provides a centralized logging system with functions to manage logging verbosity, handlers, and formatting.
+
+## Functions
+
+### get_logger
+
+```python
+get_logger(name: Optional[str] = None) -> logging.Logger
+```
+
+Get a logger with the specified name. If no name is provided, the root logger for the library is returned.
+
+<ParamField path="name" type="Optional[str]" default="None">
+  The name of the logger. If None, the root logger for the library is returned.
+</ParamField>
+
+<ResponseField name="logger" type="logging.Logger">
+  The logger instance with the specified name.
+</ResponseField>
+
+#### Example
+
+```python
+from scrapegraphai.utils import get_logger
+
+# Get the root logger
+logger = get_logger()
+logger.info("Starting scraping process")
+
+# Get a named logger
+logger = get_logger("my_scraper")
+logger.debug("Debug information")
+```
+
+### set_verbosity_info
+
+```python
+set_verbosity_info() -> None
+```
+
+Set the verbosity level of the root logger to INFO. This will display INFO, WARNING, ERROR, and FATAL messages.
+
+#### Example
+
+```python
+from scrapegraphai.utils import set_verbosity_info, get_logger
+
+set_verbosity_info()
+logger = get_logger()
+logger.info("This message will be displayed")
+logger.debug("This message will NOT be displayed")
+```
+
+### set_verbosity_debug
+
+```python
+set_verbosity_debug() -> None
+```
+
+Set the verbosity level of the root logger to DEBUG. This will display all log messages including DEBUG level.
+
+#### Example
+
+```python
+from scrapegraphai.utils import set_verbosity_debug, get_logger
+
+set_verbosity_debug()
+logger = get_logger()
+logger.debug("This debug message will now be displayed")
+```
+
+### set_verbosity_warning
+
+```python
+set_verbosity_warning() -> None
+```
+
+Set the verbosity level of the root logger to WARNING. This is the default level.
+
+### set_verbosity_error
+
+```python
+set_verbosity_error() -> None
+```
+
+Set the verbosity level of the root logger to ERROR.
+
+### set_verbosity_fatal
+
+```python
+set_verbosity_fatal() -> None
+```
+
+Set the verbosity level of the root logger to FATAL. Only critical errors will be displayed.
+
+### get_verbosity
+
+```python
+get_verbosity() -> int
+```
+
+Get the current verbosity level of the root logger.
+
+<ResponseField name="verbosity" type="int">
+  The current verbosity level (e.g., logging.INFO, logging.DEBUG).
+</ResponseField>
+
+#### Example
+
+```python
+from scrapegraphai.utils import get_verbosity, set_verbosity_info
+import logging
+
+set_verbosity_info()
+current_level = get_verbosity()
+print(current_level == logging.INFO)  # True
+```
+
+### set_verbosity
+
+```python
+set_verbosity(verbosity: int) -> None
+```
+
+Set the verbosity level of the root logger to a custom level.
+
+<ParamField path="verbosity" type="int" required>
+  The verbosity level to set (e.g., logging.DEBUG, logging.INFO, logging.WARNING).
+</ParamField>
+
+#### Example
+
+```python
+from scrapegraphai.utils import set_verbosity
+import logging
+
+# Set custom verbosity level
+set_verbosity(logging.CRITICAL)
+```
+
+### set_handler
+
+```python
+set_handler(handler: logging.Handler) -> None
+```
+
+Add a custom handler to the root logger.
+
+<ParamField path="handler" type="logging.Handler" required>
+  The logging handler to add to the root logger.
+</ParamField>
+
+#### Example
+
+```python
+from scrapegraphai.utils import set_handler, get_logger
+import logging
+
+# Add a file handler
+file_handler = logging.FileHandler('scraping.log')
+set_handler(file_handler)
+
+logger = get_logger()
+logger.info("This will be logged to both console and file")
+```
+
+### unset_handler
+
+```python
+unset_handler(handler: logging.Handler) -> None
+```
+
+Remove a handler from the root logger.
+
+<ParamField path="handler" type="logging.Handler" required>
+  The logging handler to remove from the root logger.
+</ParamField>
+
+### set_formatting
+
+```python
+set_formatting() -> None
+```
+
+Set formatting for all handlers bound to the root logger. The format is: `[levelname|filename:lineno] time >> message`
+
+#### Example
+
+```python
+from scrapegraphai.utils import set_formatting, get_logger, set_verbosity_info
+
+set_formatting()
+set_verbosity_info()
+logger = get_logger()
+logger.info("Formatted log message")
+# Output: [INFO|myfile.py:10] 2024-01-01 12:00:00 >> Formatted log message
+```
+
+### unset_formatting
+
+```python
+unset_formatting() -> None
+```
+
+Remove formatting for all handlers bound to the root logger.
+
+### set_propagation
+
+```python
+set_propagation() -> None
+```
+
+Enable propagation of the root logger, allowing log messages to propagate to parent loggers.
+
+### unset_propagation
+
+```python
+unset_propagation() -> None
+```
+
+Disable propagation of the root logger. This is the default behavior.
+
+## Complete Example
+
+```python
+from scrapegraphai.utils import (
+    get_logger,
+    set_verbosity_info,
+    set_formatting
+)
+from scrapegraphai.graphs import SmartScraperGraph
+
+# Configure logging
+set_verbosity_info()
+set_formatting()
+logger = get_logger()
+
+# Your scraping code
+logger.info("Starting scraping job")
+
+graph_config = {
+    "llm": {"model": "openai/gpt-4o-mini"},
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Extract product names",
+    source="https://example.com",
+    config=graph_config,
+)
+
+result = smart_scraper.run()
+logger.info(f"Scraping completed: {len(result)} items extracted")
+```

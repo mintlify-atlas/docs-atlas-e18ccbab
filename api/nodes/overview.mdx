@@ -1,0 +1,213 @@
+---
+title: "Nodes Overview"
+description: "Understanding the BaseNode class and node lifecycle in ScrapeGraphAI"
+---
+
+## Introduction
+
+Nodes are the fundamental building blocks of ScrapeGraphAI graphs. Each node performs a specific operation in the scraping workflow, such as fetching content, parsing HTML, or generating answers using LLMs.
+
+## BaseNode Class
+
+All nodes in ScrapeGraphAI inherit from the abstract `BaseNode` class, which provides the core functionality for node execution and state management.
+
+### Class Signature
+
+```python
+class BaseNode(ABC):
+    def __init__(
+        self,
+        node_name: str,
+        node_type: str,
+        input: str,
+        output: List[str],
+        min_input_len: int = 1,
+        node_config: Optional[dict] = None,
+    )
+```
+
+### Attributes
+
+<ParamField path="node_name" type="str" required>
+  The unique identifier name for the node
+</ParamField>
+
+<ParamField path="node_type" type="str" required>
+  Type of the node; must be 'node' or 'conditional_node'
+</ParamField>
+
+<ParamField path="input" type="str" required>
+  Boolean expression defining the input keys needed from the state. Supports AND (`&`) and OR (`|`) operators
+</ParamField>
+
+<ParamField path="output" type="List[str]" required>
+  List of output keys to be updated in the state
+</ParamField>
+
+<ParamField path="min_input_len" type="int" default="1">
+  Minimum required number of input keys
+</ParamField>
+
+<ParamField path="node_config" type="Optional[dict]" default="None">
+  Additional configuration for the node
+</ParamField>
+
+## Node Lifecycle
+
+### 1. Initialization
+
+Nodes are initialized with their configuration parameters:
+
+```python
+fetch_node = FetchNode(
+    input="url",
+    output=["document"],
+    node_config={"headless": True, "verbose": False}
+)
+```
+
+### 2. Execution
+
+Nodes implement the abstract `execute()` method to perform their logic:
+
+```python
+@abstractmethod
+def execute(self, state: dict) -> dict:
+    """
+    Execute the node's logic based on the current state and update it accordingly.
+    
+    Args:
+        state (dict): The current state of the graph.
+    
+    Returns:
+        dict: The updated state after executing the node's logic.
+    """
+    pass
+```
+
+### 3. Input Processing
+
+Nodes use `get_input_keys()` to extract required data from the state:
+
+```python
+input_keys = self.get_input_keys(state)
+input_data = [state[key] for key in input_keys]
+```
+
+### 4. State Updates
+
+Nodes update the state with their output:
+
+```python
+state.update({self.output[0]: result})
+return state
+```
+
+## Input Expressions
+
+The `input` parameter supports Boolean expressions for flexible state key matching:
+
+- **Simple input**: `"url"` - requires the `url` key in state
+- **AND operator**: `"url & user_prompt"` - requires both keys
+- **OR operator**: `"url | local_dir"` - requires at least one key
+- **Complex expressions**: `"(url | local_dir) & user_prompt"` - supports parentheses for grouping
+
+## Creating Custom Nodes
+
+To create a custom node, extend the `BaseNode` class and implement the `execute()` method:
+
+```python
+from scrapegraphai.nodes import BaseNode
+from typing import List, Optional
+
+class CustomNode(BaseNode):
+    def __init__(
+        self,
+        input: str,
+        output: List[str],
+        node_config: Optional[dict] = None,
+        node_name: str = "CustomNode",
+    ):
+        super().__init__(node_name, "node", input, output, 1, node_config)
+        
+        # Initialize custom attributes from node_config
+        self.custom_param = node_config.get("custom_param", "default")
+    
+    def execute(self, state: dict) -> dict:
+        """Custom node logic"""
+        self.logger.info(f"--- Executing {self.node_name} Node ---")
+        
+        # Get input data from state
+        input_keys = self.get_input_keys(state)
+        input_data = [state[key] for key in input_keys]
+        
+        # Perform custom processing
+        result = self.process_data(input_data)
+        
+        # Update state with output
+        state.update({self.output[0]: result})
+        return state
+    
+    def process_data(self, data):
+        """Custom processing logic"""
+        # Your implementation here
+        return processed_data
+```
+
+## Node Types
+
+ScrapeGraphAI provides two main node types:
+
+### Standard Nodes
+
+Standard nodes (`node_type="node"`) perform operations and always proceed to the next node in the graph:
+
+- [FetchNode](/api/nodes/fetch-node) - Fetches content from URLs or files
+- [ParseNode](/api/nodes/parse-node) - Parses and chunks HTML content
+- [GenerateAnswerNode](/api/nodes/generate-answer-node) - Generates answers using LLMs
+- [SearchNode](/api/nodes/search-node) - Searches the internet for information
+- [ReasoningNode](/api/nodes/reasoning-node) - Refines prompts with reasoning
+
+### Conditional Nodes
+
+Conditional nodes (`node_type="conditional_node"`) implement branching logic based on state conditions:
+
+- [ConditionalNode](/api/nodes/conditional-node) - Directs flow based on state key presence or custom conditions
+
+## Utility Methods
+
+### update_config()
+
+Updates node configuration and attributes:
+
+```python
+node.update_config({"verbose": True, "timeout": 60}, overwrite=True)
+```
+
+### get_input_keys()
+
+Determines necessary state keys based on input specification:
+
+```python
+input_keys = node.get_input_keys(state)
+# Returns: ['url', 'user_prompt']
+```
+
+## Best Practices
+
+1. **Use descriptive node names** - Makes debugging easier
+2. **Validate input data** - Check for required keys and data types
+3. **Handle errors gracefully** - Use try-except blocks for robustness
+4. **Log important information** - Use `self.logger` for debugging
+5. **Keep nodes focused** - Each node should have a single responsibility
+6. **Document state changes** - Clearly specify input and output keys
+
+## Next Steps
+
+- Learn about specific node implementations:
+  - [FetchNode](/api/nodes/fetch-node)
+  - [ParseNode](/api/nodes/parse-node)
+  - [GenerateAnswerNode](/api/nodes/generate-answer-node)
+  - [SearchNode](/api/nodes/search-node)
+  - [ConditionalNode](/api/nodes/conditional-node)
+  - [ReasoningNode](/api/nodes/reasoning-node)

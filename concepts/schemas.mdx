@@ -1,0 +1,548 @@
+---
+title: Schemas
+description: Define structured output with Pydantic schemas in ScrapeGraphAI
+---
+
+# Schemas
+
+Schemas in ScrapeGraphAI use Pydantic models to define the structure and validation rules for extracted data. They ensure your scraping results are consistently formatted and type-safe.
+
+## Why Use Schemas?
+
+Schemas provide several benefits:
+
+<CardGroup cols={2}>
+  <Card title="Type Safety" icon="shield-check">
+    Enforce data types and validation rules
+  </Card>
+  <Card title="Structure" icon="table-columns">
+    Define exact output format
+  </Card>
+  <Card title="Documentation" icon="book">
+    Self-documenting data models
+  </Card>
+  <Card title="IDE Support" icon="code">
+    Autocomplete and type hints
+  </Card>
+</CardGroup>
+
+## Basic Schema
+
+Schemas are Pydantic `BaseModel` classes:
+
+```python
+from pydantic import BaseModel, Field
+
+class Product(BaseModel):
+    name: str = Field(description="The product name")
+    price: float = Field(description="Price in USD")
+    available: bool = Field(description="Whether product is in stock")
+```
+
+### Using the Schema
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+
+graph_config = {
+    "llm": {"model": "openai/gpt-4o-mini", "api_key": "sk-..."}
+}
+
+scraper = SmartScraperGraph(
+    prompt="Extract product information",
+    source="https://example.com/product",
+    config=graph_config,
+    schema=Product  # Pass the schema class
+)
+
+result = scraper.run()
+print(result)
+# Output: {'name': 'Laptop', 'price': 999.99, 'available': True}
+```
+
+<Info>
+The LLM is automatically guided to generate output matching your schema structure.
+</Info>
+
+## Field Descriptions
+
+Always include descriptions using `Field()`. These help the LLM understand what to extract:
+
+```python
+from pydantic import BaseModel, Field
+
+class Article(BaseModel):
+    title: str = Field(
+        description="The main headline or title of the article"
+    )
+    author: str = Field(
+        description="Full name of the article author"
+    )
+    published_date: str = Field(
+        description="Publication date in YYYY-MM-DD format"
+    )
+    summary: str = Field(
+        description="A brief 2-3 sentence summary of the article content"
+    )
+    tags: list[str] = Field(
+        description="List of relevant topic tags or categories"
+    )
+```
+
+<Note>
+Clear, detailed descriptions significantly improve extraction accuracy.
+</Note>
+
+## Complex Schemas
+
+### Nested Objects
+
+Create hierarchical data structures:
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class Address(BaseModel):
+    street: str = Field(description="Street address")
+    city: str = Field(description="City name")
+    country: str = Field(description="Country name")
+    postal_code: str = Field(description="Postal/ZIP code")
+
+class Contact(BaseModel):
+    email: str = Field(description="Email address")
+    phone: str = Field(description="Phone number")
+
+class Company(BaseModel):
+    name: str = Field(description="Company name")
+    description: str = Field(description="Company description")
+    address: Address = Field(description="Company address")
+    contact: Contact = Field(description="Contact information")
+    employee_count: int = Field(description="Number of employees")
+
+# Usage
+scraper = SmartScraperGraph(
+    prompt="Extract company information",
+    source="https://example.com/about",
+    config=graph_config,
+    schema=Company
+)
+
+result = scraper.run()
+print(result['address']['city'])  # Access nested data
+```
+
+### Lists of Objects
+
+Extract multiple items with a wrapper class:
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class Product(BaseModel):
+    name: str = Field(description="Product name")
+    price: float = Field(description="Price in USD")
+    rating: float = Field(description="Average rating out of 5")
+    reviews: int = Field(description="Number of reviews")
+
+class ProductList(BaseModel):
+    products: List[Product] = Field(
+        description="List of all products found on the page"
+    )
+
+# Usage
+scraper = SmartScraperGraph(
+    prompt="Extract all products from the catalog",
+    source="https://example.com/products",
+    config=graph_config,
+    schema=ProductList
+)
+
+result = scraper.run()
+for product in result['products']:
+    print(f"{product['name']}: ${product['price']}")
+```
+
+<Note>
+When extracting multiple items, always use a wrapper class with a `List` field.
+</Note>
+
+## Optional Fields
+
+Make fields optional when data might not be available:
+
+```python
+from pydantic import BaseModel, Field
+from typing import Optional
+
+class JobPosting(BaseModel):
+    title: str = Field(description="Job title")
+    company: str = Field(description="Company name")
+    location: str = Field(description="Job location")
+    salary: Optional[str] = Field(
+        default=None,
+        description="Salary range if available"
+    )
+    remote: Optional[bool] = Field(
+        default=None,
+        description="Whether job is remote"
+    )
+    description: str = Field(description="Job description")
+```
+
+## Default Values
+
+Provide defaults for fields:
+
+```python
+from pydantic import BaseModel, Field
+
+class Review(BaseModel):
+    author: str = Field(description="Reviewer name")
+    rating: int = Field(description="Rating from 1-5")
+    comment: str = Field(description="Review text")
+    verified: bool = Field(
+        default=False,
+        description="Whether purchase is verified"
+    )
+    helpful_count: int = Field(
+        default=0,
+        description="Number of helpful votes"
+    )
+```
+
+## Field Validation
+
+Add custom validation rules:
+
+```python
+from pydantic import BaseModel, Field, field_validator
+from typing import List
+
+class Product(BaseModel):
+    name: str = Field(description="Product name")
+    price: float = Field(description="Price in USD", gt=0)  # Must be > 0
+    rating: float = Field(
+        description="Rating from 0-5",
+        ge=0,  # Greater than or equal to 0
+        le=5   # Less than or equal to 5
+    )
+    tags: List[str] = Field(description="Product tags")
+    
+    @field_validator('price')
+    @classmethod
+    def price_must_be_positive(cls, v):
+        if v <= 0:
+            raise ValueError('Price must be positive')
+        return v
+    
+    @field_validator('tags')
+    @classmethod
+    def tags_must_not_be_empty(cls, v):
+        if not v:
+            raise ValueError('At least one tag required')
+        return v
+```
+
+## Common Patterns
+
+### E-commerce Product
+
+```python
+from pydantic import BaseModel, Field
+from typing import List, Optional
+
+class Product(BaseModel):
+    name: str = Field(description="Product name")
+    price: float = Field(description="Current price in USD")
+    original_price: Optional[float] = Field(
+        default=None,
+        description="Original price if discounted"
+    )
+    description: str = Field(description="Product description")
+    images: List[str] = Field(description="List of product image URLs")
+    available: bool = Field(description="Whether in stock")
+    rating: Optional[float] = Field(
+        default=None,
+        description="Average rating 0-5"
+    )
+    review_count: Optional[int] = Field(
+        default=0,
+        description="Number of reviews"
+    )
+
+class Products(BaseModel):
+    products: List[Product]
+```
+
+### News Article
+
+```python
+from pydantic import BaseModel, Field
+from typing import List, Optional
+
+class Article(BaseModel):
+    title: str = Field(description="Article headline")
+    author: str = Field(description="Author name")
+    published_date: str = Field(description="Publication date")
+    category: str = Field(description="Article category")
+    summary: str = Field(description="Brief summary")
+    content: str = Field(description="Full article text")
+    tags: List[str] = Field(description="Article tags")
+    image_url: Optional[str] = Field(
+        default=None,
+        description="Featured image URL"
+    )
+
+class Articles(BaseModel):
+    articles: List[Article]
+```
+
+### Job Listings
+
+```python
+from pydantic import BaseModel, Field
+from typing import List, Optional
+
+class Job(BaseModel):
+    title: str = Field(description="Job title")
+    company: str = Field(description="Company name")
+    location: str = Field(description="Job location")
+    salary_range: Optional[str] = Field(
+        default=None,
+        description="Salary range"
+    )
+    job_type: str = Field(description="Full-time, part-time, contract, etc.")
+    remote: bool = Field(description="Whether job is remote")
+    description: str = Field(description="Job description")
+    requirements: List[str] = Field(description="Required qualifications")
+    posted_date: str = Field(description="Date posted")
+
+class JobListings(BaseModel):
+    jobs: List[Job]
+```
+
+### Restaurant Menu
+
+```python
+from pydantic import BaseModel, Field
+from typing import List, Optional
+
+class MenuItem(BaseModel):
+    name: str = Field(description="Dish name")
+    description: str = Field(description="Dish description")
+    price: float = Field(description="Price in USD")
+    category: str = Field(description="Menu category (appetizer, entree, etc.)")
+    dietary: Optional[List[str]] = Field(
+        default=None,
+        description="Dietary tags (vegetarian, vegan, gluten-free, etc.)"
+    )
+
+class Menu(BaseModel):
+    restaurant_name: str = Field(description="Restaurant name")
+    items: List[MenuItem] = Field(description="All menu items")
+```
+
+## Schema with Search Graph
+
+Schemas work with all graph types:
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+from scrapegraphai.graphs import SearchGraph
+
+class Event(BaseModel):
+    name: str = Field(description="Event name")
+    date: str = Field(description="Event date")
+    location: str = Field(description="Event location")
+    description: str = Field(description="Event description")
+
+class Events(BaseModel):
+    events: List[Event]
+
+search_config = {
+    "llm": {"model": "openai/gpt-4o-mini", "api_key": "sk-..."},
+    "verbose": True
+}
+
+search_graph = SearchGraph(
+    prompt="Find upcoming tech conferences in 2024",
+    config=search_config,
+    schema=Events
+)
+
+result = search_graph.run()
+print(result)
+```
+
+## Schema with JSON Sources
+
+Schemas also structure data from JSON scraping:
+
+```python
+from scrapegraphai.graphs import JSONScraperGraph
+
+class User(BaseModel):
+    id: int = Field(description="User ID")
+    name: str = Field(description="Full name")
+    email: str = Field(description="Email address")
+
+class Users(BaseModel):
+    users: List[User]
+
+json_config = {
+    "llm": {"model": "openai/gpt-4o-mini", "api_key": "sk-..."},
+}
+
+json_scraper = JSONScraperGraph(
+    prompt="Extract all user information",
+    source="users.json",
+    config=json_config,
+    schema=Users
+)
+
+result = json_scraper.run()
+```
+
+## Without Schemas
+
+You can also scrape without defining a schema:
+
+```python
+scraper = SmartScraperGraph(
+    prompt="Extract product name, price, and description",
+    source="https://example.com/product",
+    config=graph_config
+    # No schema parameter
+)
+
+result = scraper.run()
+# LLM returns unstructured JSON
+print(result)
+```
+
+<Note>
+Without a schema, output structure is less predictable. Schemas are recommended for production use.
+</Note>
+
+## Best Practices
+
+<Accordion title="Always Use Descriptions">
+```python
+# Good
+name: str = Field(description="Product name as shown on the page")
+
+# Bad
+name: str
+```
+
+Descriptions guide the LLM on what to extract.
+</Accordion>
+
+<Accordion title="Use Clear Field Names">
+```python
+# Good
+published_date: str = Field(description="Publication date")
+author_name: str = Field(description="Author full name")
+
+# Bad
+dt: str
+auth: str
+```
+</Accordion>
+
+<Accordion title="Make Optional Fields Explicit">
+```python
+# Good
+salary: Optional[str] = Field(default=None, description="Salary if listed")
+
+# Bad (raises error if not found)
+salary: str = Field(description="Salary")
+```
+</Accordion>
+
+<Accordion title="Use Wrapper Classes for Lists">
+```python
+# Good
+class Products(BaseModel):
+    products: List[Product]
+
+# Avoid returning List[Product] directly
+```
+</Accordion>
+
+<Accordion title="Keep Schemas Focused">
+Don't try to extract everything. Create focused schemas for specific data:
+
+```python
+# Good: Focused on products
+class Product(BaseModel):
+    name: str
+    price: float
+    available: bool
+
+# Bad: Too many unrelated fields
+class Page(BaseModel):
+    product_name: str
+    product_price: float
+    site_title: str
+    footer_text: str
+    ad_content: str
+```
+</Accordion>
+
+## Troubleshooting
+
+### Schema Not Being Followed
+
+1. **Check field descriptions** - Make them clear and specific
+2. **Simplify the schema** - Start simple, add complexity gradually
+3. **Verify data exists** - Ensure the data is on the page
+4. **Use verbose mode** - See what's being sent to the LLM
+
+```python
+config = {
+    "llm": {...},
+    "verbose": True  # Enable detailed logging
+}
+```
+
+### Missing Optional Fields
+
+Ensure optional fields have defaults:
+
+```python
+# Correct
+rating: Optional[float] = Field(default=None, description="Rating")
+
+# Will error if not found
+rating: Optional[float] = Field(description="Rating")
+```
+
+### Validation Errors
+
+Check field constraints:
+
+```python
+price: float = Field(description="Price", gt=0)  # Must be positive
+rating: float = Field(description="Rating", ge=0, le=5)  # 0-5 range
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/concepts/configuration">
+    Learn about graph configuration
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/smart-scraper">
+    See complete schema examples
+  </Card>
+  <Card title="Pydantic Docs" icon="external-link" href="https://docs.pydantic.dev">
+    Learn more about Pydantic
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/graphs/smart-scraper-graph">
+    View API documentation
+  </Card>
+</CardGroup>

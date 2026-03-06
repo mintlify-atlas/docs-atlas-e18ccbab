@@ -1,0 +1,507 @@
+---
+title: JSONScraperGraph
+description: Extract information from JSON files using natural language prompts
+icon: "brackets-curly"
+---
+
+## Overview
+
+`JSONScraperGraph` defines a scraping pipeline for JSON files. It allows you to query JSON data using natural language without writing complex JSON path queries or parsing code.
+
+## Class Signature
+
+```python
+class JSONScraperGraph(AbstractGraph):
+    def __init__(
+        self,
+        prompt: str,
+        source: str,
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None,
+    )
+```
+
+## Constructor Parameters
+
+<ParamField path="prompt" type="str" required>
+  The natural language query to extract information from the JSON file.
+</ParamField>
+
+<ParamField path="source" type="str" required>
+  The source JSON file or directory. Can be:
+  - Path to a single JSON file (e.g., `"data.json"`)
+  - Path to a directory containing multiple JSON files (e.g., `"./json_data/"`)
+</ParamField>
+
+<ParamField path="config" type="dict" required>
+  Configuration parameters for the graph. Must include:
+  - `llm`: LLM configuration (e.g., `{"model": "openai/gpt-4o"}`)
+  
+  Optional parameters:
+  - `verbose` (bool): Enable detailed logging
+  - `headless` (bool): Run in headless mode
+  - `additional_info` (str): Extra context for the LLM
+</ParamField>
+
+<ParamField path="schema" type="Type[BaseModel]" default="None">
+  Optional Pydantic model defining the expected output structure.
+</ParamField>
+
+## Attributes
+
+<ResponseField name="prompt" type="str">
+  The user's query prompt.
+</ResponseField>
+
+<ResponseField name="source" type="str">
+  The JSON file path or directory path.
+</ResponseField>
+
+<ResponseField name="config" type="dict">
+  Configuration dictionary for the graph.
+</ResponseField>
+
+<ResponseField name="schema" type="BaseModel">
+  Optional output schema for structured data extraction.
+</ResponseField>
+
+<ResponseField name="llm_model" type="object">
+  The configured language model instance.
+</ResponseField>
+
+<ResponseField name="input_key" type="str">
+  Either "json" (single file) or "json_dir" (directory) based on the source.
+</ResponseField>
+
+## Methods
+
+### run()
+
+Executes the JSON querying process and returns the answer.
+
+```python
+def run(self) -> str
+```
+
+<ResponseField name="return" type="str">
+  The extracted information from the JSON file(s), or "No answer found." if extraction fails.
+</ResponseField>
+
+## Basic Usage
+
+```python
+from scrapegraphai.graphs import JSONScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o",
+        "api_key": "your-api-key"
+    }
+}
+
+json_scraper = JSONScraperGraph(
+    prompt="List all the attractions in Chioggia.",
+    source="data/chioggia.json",
+    config=graph_config
+)
+
+result = json_scraper.run()
+print(result)
+```
+
+## Example JSON File
+
+```json
+{
+  "city": "Chioggia",
+  "country": "Italy",
+  "population": 50000,
+  "attractions": [
+    {
+      "name": "Piazza Vigo",
+      "type": "square",
+      "description": "Main square with historic buildings",
+      "rating": 4.5
+    },
+    {
+      "name": "Museo della Laguna Sud",
+      "type": "museum",
+      "description": "Museum showcasing local history",
+      "rating": 4.2
+    },
+    {
+      "name": "Cathedral of Santa Maria",
+      "type": "church",
+      "description": "Historic cathedral from the 11th century",
+      "rating": 4.7
+    }
+  ],
+  "restaurants": [
+    {
+      "name": "Ristorante El Gato",
+      "cuisine": "Italian",
+      "price_range": "$$",
+      "rating": 4.6
+    }
+  ]
+}
+```
+
+## Query Examples
+
+### Simple Extraction
+
+```python
+json_scraper = JSONScraperGraph(
+    prompt="What is the population of the city?",
+    source="data/chioggia.json",
+    config=graph_config
+)
+
+result = json_scraper.run()
+# Output: "The population is 50,000"
+```
+
+### Nested Data Access
+
+```python
+json_scraper = JSONScraperGraph(
+    prompt="List all museum attractions with their ratings",
+    source="data/chioggia.json",
+    config=graph_config
+)
+
+result = json_scraper.run()
+```
+
+### Aggregation
+
+```python
+json_scraper = JSONScraperGraph(
+    prompt="What is the average rating of all attractions?",
+    source="data/chioggia.json",
+    config=graph_config
+)
+
+result = json_scraper.run()
+```
+
+### Filtering
+
+```python
+json_scraper = JSONScraperGraph(
+    prompt="List all attractions with a rating above 4.5",
+    source="data/chioggia.json",
+    config=graph_config
+)
+
+result = json_scraper.run()
+```
+
+## Structured Output with Schema
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class Attraction(BaseModel):
+    name: str = Field(description="Attraction name")
+    type: str = Field(description="Type of attraction")
+    rating: float = Field(description="Rating score")
+
+class AttractionList(BaseModel):
+    attractions: List[Attraction]
+    count: int = Field(description="Total number of attractions")
+
+json_scraper = JSONScraperGraph(
+    prompt="Extract all attractions with their details",
+    source="data/chioggia.json",
+    config=graph_config,
+    schema=AttractionList
+)
+
+result = json_scraper.run()
+# Result is automatically validated against the schema
+```
+
+## Complex JSON Structures
+
+```json
+{
+  "api_response": {
+    "status": "success",
+    "data": {
+      "users": [
+        {
+          "id": 1,
+          "name": "John Doe",
+          "profile": {
+            "email": "john@example.com",
+            "addresses": [
+              {
+                "type": "home",
+                "city": "New York",
+                "country": "USA"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "metadata": {
+      "total_records": 1,
+      "page": 1
+    }
+  }
+}
+```
+
+```python
+json_scraper = JSONScraperGraph(
+    prompt="Extract all user email addresses and their cities",
+    source="data/api_response.json",
+    config=graph_config
+)
+
+result = json_scraper.run()
+```
+
+## Multiple JSON Files
+
+```python
+# Directory structure:
+# json_data/
+#   ├── users_2023.json
+#   ├── users_2024.json
+#   └── users_2025.json
+
+json_scraper = JSONScraperGraph(
+    prompt="Count total users across all files",
+    source="./json_data/",  # Directory path
+    config=graph_config
+)
+
+result = json_scraper.run()
+# Automatically processes all JSON files in the directory
+```
+
+## Graph Workflow
+
+The JSONScraperGraph uses a simple node pipeline:
+
+```
+FetchNode → GenerateAnswerNode
+```
+
+1. **FetchNode**: Loads and parses the JSON file(s)
+2. **GenerateAnswerNode**: Processes the JSON data and answers the query
+
+## Advanced Usage
+
+### With Additional Context
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "additional_info": """
+        This JSON contains e-commerce product data.
+        Prices are in USD. Focus on products with high ratings.
+    """
+}
+
+json_scraper = JSONScraperGraph(
+    prompt="Identify top-rated products under $100",
+    source="data/products.json",
+    config=config
+)
+```
+
+### API Response Analysis
+
+```python
+from pydantic import BaseModel
+from typing import List, Optional
+
+class ErrorInfo(BaseModel):
+    code: str
+    message: str
+    field: Optional[str] = None
+
+class APIAnalysis(BaseModel):
+    status: str
+    success_rate: float
+    error_types: List[ErrorInfo]
+    insights: str
+
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "additional_info": "Analyze API responses for error patterns"
+}
+
+json_scraper = JSONScraperGraph(
+    prompt="Analyze the API responses and identify common error patterns",
+    source="data/api_logs.json",
+    config=config,
+    schema=APIAnalysis
+)
+
+result = json_scraper.run()
+```
+
+## Use Cases
+
+1. **API Response Analysis**: Query and analyze API responses
+2. **Configuration Files**: Extract information from config files
+3. **Data Exploration**: Explore JSON datasets without coding
+4. **Log Analysis**: Query application logs in JSON format
+5. **Data Transformation**: Extract and transform JSON data
+
+## Example: E-commerce Product Analysis
+
+```json
+{
+  "products": [
+    {
+      "id": "P001",
+      "name": "Laptop Pro",
+      "category": "Electronics",
+      "price": 1299.99,
+      "stock": 45,
+      "ratings": {
+        "average": 4.5,
+        "count": 230
+      },
+      "reviews": [
+        {"rating": 5, "comment": "Excellent!"},
+        {"rating": 4, "comment": "Good value"}
+      ]
+    }
+  ]
+}
+```
+
+```python
+from pydantic import BaseModel
+from typing import List
+
+class ProductInsight(BaseModel):
+    product: str
+    price: float
+    rating: float
+    review_sentiment: str
+
+class Insights(BaseModel):
+    top_products: List[ProductInsight]
+    categories_summary: dict
+    recommendations: str
+
+json_scraper = JSONScraperGraph(
+    prompt="""Analyze products and provide:
+    1. Top 3 products by rating
+    2. Summary by category
+    3. Recommendations for inventory
+    """,
+    source="data/products.json",
+    config=graph_config,
+    schema=Insights
+)
+
+result = json_scraper.run()
+```
+
+## Accessing Results
+
+```python
+result = json_scraper.run()
+
+# Get the answer
+print("Answer:", result)
+
+# Access full state
+final_state = json_scraper.get_state()
+raw_data = final_state.get("doc")
+answer = final_state.get("answer")
+
+print(f"Processed JSON data size: {len(str(raw_data))} characters")
+
+# Execution info
+exec_info = json_scraper.get_execution_info()
+for node_info in exec_info:
+    print(f"{node_info['node_name']}: {node_info['exec_time']:.2f}s")
+    print(f"Tokens: {node_info['total_tokens']}")
+    print(f"Cost: ${node_info['total_cost_USD']:.4f}")
+```
+
+## Working with Large JSON Files
+
+```python
+config = {
+    "llm": {
+        "model": "openai/gpt-4o",
+        "model_tokens": 128000  # Use model with larger context
+    },
+    "additional_info": "Focus on the most relevant data for the query"
+}
+
+json_scraper = JSONScraperGraph(
+    prompt="Summarize key metrics from the data",
+    source="data/large_dataset.json",
+    config=config
+)
+```
+
+## Error Handling
+
+```python
+import json
+
+try:
+    # Validate JSON first
+    with open("data/file.json", "r") as f:
+        json.load(f)  # Check if valid JSON
+    
+    result = json_scraper.run()
+    
+    if result == "No answer found.":
+        print("Failed to extract information from JSON")
+    else:
+        print(f"Success: {result}")
+        
+except json.JSONDecodeError as e:
+    print(f"Invalid JSON format: {e}")
+except FileNotFoundError:
+    print("JSON file not found")
+except Exception as e:
+    print(f"Error during processing: {e}")
+```
+
+## Tips for Better Results
+
+1. **Understand structure**: Know your JSON structure before querying
+2. **Be specific**: Clear queries get better answers
+3. **Use schema**: Define schemas for type-safe output
+4. **Provide context**: Use `additional_info` for domain knowledge
+5. **Test queries**: Start simple and iterate
+6. **Validate JSON**: Ensure JSON is well-formed
+
+## JSON vs Other Formats
+
+| Feature | JSON | CSV | XML |
+|---------|------|-----|-----|
+| **Structure** | Nested/Hierarchical | Flat/Tabular | Nested/Hierarchical |
+| **Complexity** | Medium-High | Low | High |
+| **Use Case** | APIs, Config | Data tables | Documents, Config |
+| **Performance** | Good | Fast | Slower |
+
+## Performance Considerations
+
+1. **File Size**: Large JSON files may exceed LLM context limits
+2. **Nesting Depth**: Deeply nested structures take more tokens
+3. **Multiple Files**: Processing multiple files increases execution time
+4. **Complex Queries**: More complex analysis requires more tokens
+
+## Related Graphs
+
+- [JSONScraperMultiGraph](/api/graphs/multi-graphs#jsonscrapermultigraph) - Process multiple JSON files separately
+- [CSVScraperGraph](/api/graphs/csv-scraper-graph) - Query CSV files
+- [XMLScraperGraph](/api/graphs/xml-scraper-graph) - Query XML files

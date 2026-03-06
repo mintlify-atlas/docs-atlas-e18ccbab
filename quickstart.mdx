@@ -1,80 +1,387 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Build your first web scraper with ScrapeGraphAI in minutes
 ---
 
-## Get started in three steps
+# Quick Start
 
-Get your documentation site running locally and make your first customization.
+Get up and running with ScrapeGraphAI in under 5 minutes. This guide will walk you through creating your first scraper using the `SmartScraperGraph` pipeline.
 
-### Step 1: Set up your local environment
+## Your First Scraper
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+The most common scraping pipeline is `SmartScraperGraph`, which extracts information from a single page given a natural language prompt and a source URL.
 
-### Step 2: Deploy your changes
+### Using Local Models (Ollama)
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+Here's a complete example using Ollama with a local Llama model:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+<Steps>
+  <Step title="Ensure Ollama is running">
+    Make sure you have Ollama installed and a model downloaded:
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```bash
+    ollama pull llama3.2
+    ollama serve
+    ```
+  </Step>
 
-### Step 3: Go live
+  <Step title="Create your scraper script">
+    Create a new Python file (e.g., `scraper.py`) with the following code:
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    ```python
+    from scrapegraphai.graphs import SmartScraperGraph
+    import json
 
-## Next steps
+    # Define the configuration for the scraping pipeline
+    graph_config = {
+        "llm": {
+            "model": "ollama/llama3.2",
+            "temperature": 0,
+            "model_tokens": 8192,
+            "format": "json",
+        },
+        "verbose": True,
+        "headless": False,
+    }
 
-Now that you have your docs running, explore these key features:
+    # Create the SmartScraperGraph instance
+    smart_scraper_graph = SmartScraperGraph(
+        prompt="Find information about the founders and what the company does",
+        source="https://scrapegraphai.com/",
+        config=graph_config
+    )
 
-<CardGroup cols={2}>
+    # Run the pipeline
+    result = smart_scraper_graph.run()
+    print(json.dumps(result, indent=4))
+    ```
+  </Step>
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+  <Step title="Run the scraper">
+    Execute your script:
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+    ```bash
+    python scraper.py
+    ```
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+    You'll see the scraper fetch the page, process it with the LLM, and return structured data:
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+    ```json
+    {
+        "description": "ScrapeGraphAI transforms websites into clean, organized data for AI agents and data analytics.",
+        "founders": [
+            {
+                "name": "Marco Vinciguerra",
+                "role": "Founder & Software Engineer",
+                "linkedin": "https://www.linkedin.com/in/marco-vinciguerra-7ba365242/"
+            },
+            {
+                "name": "Lorenzo Padoan",
+                "role": "Founder & Product Engineer",
+                "linkedin": "https://www.linkedin.com/in/lorenzo-padoan-4521a2154/"
+            }
+        ]
+    }
+    ```
+  </Step>
+</Steps>
 
-</CardGroup>
+### Using OpenAI
+
+For production use cases, you might prefer OpenAI's models:
+
+```python
+import os
+import json
+from dotenv import load_dotenv
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+# Define the configuration with OpenAI
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o-mini",
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+# Create and run the scraper
+smart_scraper_graph = SmartScraperGraph(
+    prompt="Extract the first article with its title and summary",
+    source="https://www.wired.com",
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+print(json.dumps(result, indent=4))
+```
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  **Model Selection**: `gpt-4o-mini` offers a great balance between performance and cost. For more complex scraping tasks, consider using `gpt-4o` or `gpt-4-turbo`.
 </Note>
+
+## Understanding the Configuration
+
+Let's break down the configuration object:
+
+```python
+graph_config = {
+    "llm": {
+        "model": "ollama/llama3.2",      # LLM provider and model name
+        "temperature": 0,                # Lower = more deterministic
+        "model_tokens": 8192,            # Context window size
+        "format": "json",                # Output format
+    },
+    "verbose": True,                     # Print execution details
+    "headless": False,                   # Show browser window (useful for debugging)
+}
+```
+
+### Key Configuration Options
+
+- **`llm.model`**: Specifies the LLM provider and model (e.g., `ollama/llama3.2`, `openai/gpt-4o-mini`)
+- **`temperature`**: Controls randomness (0 = deterministic, 1 = creative)
+- **`verbose`**: Enables detailed logging of the scraping process
+- **`headless`**: Set to `True` for production (no browser UI), `False` for debugging
+
+## Using Schema for Structured Output
+
+For predictable, type-safe output, define a Pydantic schema:
+
+```python
+import os
+from typing import List
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+# Define the output schema
+class Project(BaseModel):
+    title: str = Field(description="The title of the project")
+    description: str = Field(description="The description of the project")
+
+class Projects(BaseModel):
+    projects: List[Project]
+
+# Configure the scraper with schema
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o-mini",
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+# Create scraper with schema
+smart_scraper_graph = SmartScraperGraph(
+    prompt="List all the projects with their descriptions",
+    source="https://perinim.github.io/projects/",
+    schema=Projects,  # Add schema here
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+print(result)
+```
+
+The output will be validated against your schema:
+
+```python
+{
+    'projects': [
+        {'title': 'Project Alpha', 'description': 'A web application for...'},
+        {'title': 'Project Beta', 'description': 'An AI-powered tool that...'}
+    ]
+}
+```
+
+<Note>
+  Using schemas ensures your data is structured correctly and makes it easier to integrate with databases or APIs.
+</Note>
+
+## Supported LLM Providers
+
+ScrapeGraphAI supports multiple LLM providers. Here's how to configure each:
+
+<CodeGroup>
+
+```python OpenAI
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": "openai/gpt-4o-mini",
+    },
+}
+```
+
+```python Ollama
+graph_config = {
+    "llm": {
+        "model": "ollama/llama3.2",
+        "temperature": 0,
+        "model_tokens": 8192,
+    },
+}
+```
+
+```python Anthropic Claude
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("ANTHROPIC_API_KEY"),
+        "model": "anthropic/claude-3-5-sonnet",
+    },
+}
+```
+
+```python Google Gemini
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GOOGLE_API_KEY"),
+        "model": "gemini/gemini-pro",
+    },
+}
+```
+
+```python Groq
+graph_config = {
+    "llm": {
+        "api_key": os.getenv("GROQ_API_KEY"),
+        "model": "groq/mixtral-8x7b-32768",
+    },
+}
+```
+
+</CodeGroup>
+
+## Advanced Features
+
+### Get Execution Information
+
+Debug and optimize your scraper by inspecting execution details:
+
+```python
+from scrapegraphai.utils import prettify_exec_info
+
+result = smart_scraper_graph.run()
+
+# Get detailed execution information
+graph_exec_info = smart_scraper_graph.get_execution_info()
+print(prettify_exec_info(graph_exec_info))
+```
+
+This shows:
+- Total execution time
+- Time spent in each node
+- LLM tokens used
+- Success/failure status
+
+### Custom Base URL for Ollama
+
+If Ollama is running on a different host or port:
+
+```python
+graph_config = {
+    "llm": {
+        "model": "ollama/llama3.2",
+        "base_url": "http://192.168.1.100:11434",  # Custom Ollama URL
+    },
+}
+```
+
+### Scraping Local Files
+
+ScrapeGraphAI can also process local HTML files:
+
+```python
+smart_scraper_graph = SmartScraperGraph(
+    prompt="Extract all product names and prices",
+    source="/path/to/local/file.html",  # Local file path
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+```
+
+## Common Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Extract Contact Information" icon="address-card">
+    ```python
+    prompt = "Find email addresses, phone numbers, and social media links"
+    ```
+  </Card>
+  
+  <Card title="Get Product Details" icon="box">
+    ```python
+    prompt = "Extract product names, prices, descriptions, and availability"
+    ```
+  </Card>
+  
+  <Card title="Scrape Articles" icon="newspaper">
+    ```python
+    prompt = "Get the article title, author, publication date, and full text"
+    ```
+  </Card>
+  
+  <Card title="Collect Company Data" icon="building">
+    ```python
+    prompt = "Find company name, headquarters, founder information, and description"
+    ```
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Browser Not Opening
+
+If the browser doesn't launch:
+
+```bash
+# Reinstall Playwright browsers
+playwright install --with-deps
+```
+
+### Empty Results
+
+- Ensure your prompt is clear and specific
+- Try setting `headless: False` to see what the browser loads
+- Check if the website requires JavaScript (Playwright handles this automatically)
+- Increase `model_tokens` if the page content is large
+
+### Rate Limiting
+
+- Add delays between requests when scraping multiple pages
+- Consider using local models (Ollama) for development
+- Use appropriate API rate limits for production
+
+## Next Steps
+
+Now that you've built your first scraper, explore more advanced features:
+
+<CardGroup cols={2}>
+  <Card title="Multi-Page Scraping" icon="sitemap" href="/graphs/multi-scraper">
+    Learn how to scrape multiple URLs with a single prompt
+  </Card>
+  
+  <Card title="Search Integration" icon="magnifying-glass" href="/graphs/search-graph">
+    Scrape top search results from search engines
+  </Card>
+  
+  <Card title="Custom Graphs" icon="diagram-project" href="/advanced/custom-graphs">
+    Build custom scraping pipelines for complex scenarios
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/graphs/smart-scraper-graph">
+    Explore all available graphs and configuration options
+  </Card>
+</CardGroup>
+
+<Warning>
+  Always respect website terms of service and robots.txt files. Use reasonable rate limits and add delays between requests to avoid overloading servers.
+</Warning>

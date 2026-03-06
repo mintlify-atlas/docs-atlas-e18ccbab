@@ -1,0 +1,478 @@
+---
+title: DepthSearchGraph
+description: Deep web crawling with internal link traversal and vectorial search
+icon: "diagram-project"
+---
+
+## Overview
+
+`DepthSearchGraph` is a scraping pipeline that performs deep crawling of websites by following internal links up to a specified depth. It uses RAG (Retrieval-Augmented Generation) to intelligently search through all crawled pages and extract relevant information.
+
+## Class Signature
+
+```python
+class DepthSearchGraph(AbstractGraph):
+    def __init__(
+        self,
+        prompt: str,
+        source: str,
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None,
+    )
+```
+
+## Constructor Parameters
+
+<ParamField path="prompt" type="str" required>
+  The natural language prompt describing what information to extract from the crawled pages.
+</ParamField>
+
+<ParamField path="source" type="str" required>
+  The starting URL or local directory. The graph will crawl from this point:
+  - URL starting with `http://` or `https://`
+  - Local directory path
+</ParamField>
+
+<ParamField path="config" type="dict" required>
+  Configuration parameters for the graph. Must include:
+  - `llm`: LLM configuration (e.g., `{"model": "openai/gpt-4o"}`)
+  - `embedder_model`: Embeddings model for RAG (optional but recommended)
+  
+  Optional parameters:
+  - `depth` (int): Maximum crawl depth (default: 1)
+  - `only_inside_links` (bool): Only follow links within the same domain (default: False)
+  - `verbose` (bool): Enable detailed logging
+  - `force` (bool): Force re-fetch even if cached
+  - `cut` (bool): Trim long documents
+  - `browser_base` (dict): BrowserBase configuration
+  - `storage_state` (str): Browser state file path
+  - `cache_path` (str): Path for caching results
+</ParamField>
+
+<ParamField path="schema" type="Type[BaseModel]" default="None">
+  Optional Pydantic model defining the expected output structure.
+</ParamField>
+
+## Attributes
+
+<ResponseField name="prompt" type="str">
+  The user's extraction prompt.
+</ResponseField>
+
+<ResponseField name="source" type="str">
+  The starting URL or local directory path.
+</ResponseField>
+
+<ResponseField name="config" type="dict">
+  Configuration dictionary for the graph.
+</ResponseField>
+
+<ResponseField name="schema" type="BaseModel">
+  Optional output schema for structured data extraction.
+</ResponseField>
+
+<ResponseField name="llm_model" type="object">
+  The configured language model instance.
+</ResponseField>
+
+<ResponseField name="input_key" type="str">
+  Either "url" or "local_dir" based on the source type.
+</ResponseField>
+
+## Methods
+
+### run()
+
+Executes the deep crawling and extraction process.
+
+```python
+def run(self) -> str
+```
+
+<ResponseField name="return" type="str">
+  The extracted information from all crawled pages, or "No answer" if extraction fails.
+</ResponseField>
+
+## Basic Usage
+
+```python
+from scrapegraphai.graphs import DepthSearchGraph
+
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o",
+        "api_key": "your-api-key"
+    },
+    "embedder_model": {
+        "model": "openai/text-embedding-3-small",
+        "api_key": "your-api-key"
+    },
+    "depth": 2,
+    "only_inside_links": True
+}
+
+depth_search = DepthSearchGraph(
+    prompt="Find all information about pricing and plans",
+    source="https://example.com",
+    config=graph_config
+)
+
+result = depth_search.run()
+print(result)
+```
+
+## Crawl Depth Configuration
+
+### Depth 1 (Default)
+
+Crawls only the starting page and its direct links:
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "depth": 1
+}
+
+# Crawls:
+# - https://example.com (starting page)
+# - All pages linked from the starting page
+```
+
+### Depth 2
+
+Crawls two levels deep:
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "depth": 2
+}
+
+# Crawls:
+# - https://example.com (level 0)
+# - All pages linked from example.com (level 1)
+# - All pages linked from level 1 pages (level 2)
+```
+
+### Depth 3+
+
+Deeper crawling (use with caution):
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "depth": 3,
+    "only_inside_links": True,  # Recommended for deep crawls
+    "cache_path": "./cache"     # Cache results
+}
+```
+
+## Domain Restriction
+
+### Only Inside Links (Recommended)
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "depth": 2,
+    "only_inside_links": True  # Stay within the same domain
+}
+
+depth_search = DepthSearchGraph(
+    prompt="Extract all documentation",
+    source="https://docs.example.com",
+    config=config
+)
+
+# Only crawls:
+# - docs.example.com/...
+# Does NOT follow links to:
+# - external-site.com
+# - github.com
+# - etc.
+```
+
+### Allow External Links
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "depth": 1,
+    "only_inside_links": False  # Follow external links (use carefully)
+}
+```
+
+## Graph Workflow
+
+The DepthSearchGraph uses the following node pipeline:
+
+```
+FetchNodeLevelK → ParseNodeDepthK → DescriptionNode → RAGNode → GenerateAnswerNodeKLevel
+```
+
+1. **FetchNodeLevelK**: Fetches pages recursively up to specified depth
+2. **ParseNodeDepthK**: Parses all crawled pages
+3. **DescriptionNode**: Generates descriptions for each page
+4. **RAGNode**: Creates vector database from all pages
+5. **GenerateAnswerNodeKLevel**: Retrieves relevant chunks and generates answer
+
+## Embedder Configuration
+
+### OpenAI Embeddings
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "embedder_model": {
+        "model": "openai/text-embedding-3-small",
+        "api_key": "your-api-key"
+    },
+    "depth": 2
+}
+```
+
+### Ollama Embeddings (Local)
+
+```python
+config = {
+    "llm": {"model": "ollama/llama2"},
+    "embedder_model": {
+        "model": "ollama/nomic-embed-text"
+    },
+    "depth": 2
+}
+```
+
+### HuggingFace Embeddings
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "embedder_model": {
+        "model": "sentence-transformers/all-MiniLM-L6-v2"
+    },
+    "depth": 2
+}
+```
+
+## Use Cases
+
+1. **Documentation Scraping**: Extract information across entire documentation sites
+2. **Site Analysis**: Analyze entire website structure and content
+3. **Knowledge Base Extraction**: Build knowledge bases from website content
+4. **Competitive Intelligence**: Gather comprehensive competitor information
+5. **Content Audit**: Audit and extract content from all pages
+
+## Advanced Usage
+
+### Documentation Site Scraping
+
+```python
+from pydantic import BaseModel
+from typing import List
+
+class DocPage(BaseModel):
+    title: str
+    url: str
+    content_summary: str
+
+class Documentation(BaseModel):
+    topic: str
+    pages: List[DocPage]
+    key_concepts: List[str]
+    code_examples: List[str]
+
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "embedder_model": {"model": "openai/text-embedding-3-small"},
+    "depth": 3,
+    "only_inside_links": True,
+    "verbose": True,
+    "cache_path": "./doc_cache"
+}
+
+depth_search = DepthSearchGraph(
+    prompt="""Extract comprehensive API documentation including:
+    - All endpoints and their descriptions
+    - Code examples
+    - Key concepts and terminology
+    """,
+    source="https://docs.example.com/api",
+    config=config,
+    schema=Documentation
+)
+
+result = depth_search.run()
+```
+
+### Product Catalog Scraping
+
+```python
+from pydantic import BaseModel
+from typing import List, Optional
+
+class Product(BaseModel):
+    name: str
+    category: str
+    price: Optional[float] = None
+    description: str
+    url: str
+
+class Catalog(BaseModel):
+    products: List[Product]
+    categories: List[str]
+    total_count: int
+
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "embedder_model": {"model": "openai/text-embedding-3-small"},
+    "depth": 2,
+    "only_inside_links": True,
+    "force": False,
+    "cache_path": "./product_cache"
+}
+
+depth_search = DepthSearchGraph(
+    prompt="Extract all products with their details from the entire catalog",
+    source="https://example.com/products",
+    config=config,
+    schema=Catalog
+)
+
+result = depth_search.run()
+```
+
+## Caching for Performance
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "embedder_model": {"model": "openai/text-embedding-3-small"},
+    "depth": 2,
+    "cache_path": "./crawl_cache",  # Enable caching
+    "force": False  # Use cache if available
+}
+
+# First run: Fetches and caches all pages
+result1 = depth_search.run()
+
+# Subsequent runs: Uses cache (much faster)
+config["force"] = False
+result2 = depth_search.run()
+```
+
+## Accessing Results
+
+```python
+result = depth_search.run()
+
+# Get the answer
+print("Answer:", result)
+
+# Access full state
+final_state = depth_search.get_state()
+docs = final_state.get("docs")
+vectorial_db = final_state.get("vectorial_db")
+answer = final_state.get("answer")
+
+print(f"\nCrawled {len(docs)} pages")
+for i, doc in enumerate(docs, 1):
+    print(f"{i}. {doc.get('url', 'Unknown URL')}")
+
+# Execution info
+exec_info = depth_search.get_execution_info()
+for node_info in exec_info:
+    print(f"{node_info['node_name']}: {node_info['exec_time']:.2f}s")
+    print(f"Tokens: {node_info['total_tokens']}")
+```
+
+## Performance Considerations
+
+### Crawl Estimates
+
+| Depth | Avg Links Per Page | Est. Pages Crawled |
+|-------|-------------------|--------------------|
+| 1 | 10 | ~10 pages |
+| 1 | 50 | ~50 pages |
+| 2 | 10 | ~100 pages |
+| 2 | 50 | ~2,500 pages |
+| 3 | 10 | ~1,000 pages |
+| 3 | 50 | ~125,000 pages |
+
+### Optimization Tips
+
+1. **Use only_inside_links**: Prevent crawling external sites
+2. **Set appropriate depth**: Start with depth=1, increase if needed
+3. **Enable caching**: Reuse crawled data for multiple queries
+4. **Use force=False**: Don't re-fetch if cached
+5. **Monitor verbose output**: Track crawling progress
+
+## Error Handling
+
+```python
+try:
+    result = depth_search.run()
+    
+    if result == "No answer":
+        print("Failed to extract information")
+        
+        # Check what was crawled
+        final_state = depth_search.get_state()
+        docs = final_state.get("docs", [])
+        print(f"Crawled {len(docs)} pages")
+    else:
+        print(f"Success: {result}")
+        
+except Exception as e:
+    print(f"Error during crawling: {e}")
+```
+
+## Rate Limiting
+
+```python
+config = {
+    "llm": {
+        "model": "openai/gpt-4o",
+        "rate_limit": {
+            "requests_per_second": 10,
+            "max_retries": 3
+        }
+    },
+    "depth": 2,
+    "only_inside_links": True
+}
+```
+
+## Comparison with Other Graphs
+
+| Feature | DepthSearchGraph | SearchGraph | SmartScraperGraph |
+|---------|------------------|-------------|-------------------|
+| **Crawl Depth** | Multi-level | Single (search results) | Single page |
+| **Link Following** | Yes | No | No |
+| **RAG/Vector Search** | Yes | No | No |
+| **Best For** | Site-wide extraction | Internet search | Single page |
+| **Performance** | Slowest | Medium | Fastest |
+
+## Limitations
+
+- Deep crawls can be very slow and expensive
+- May encounter rate limiting on target sites
+- Requires embedder model for RAG functionality
+- Can generate large amounts of data
+- May hit LLM token limits with many pages
+
+## Best Practices
+
+1. **Start shallow**: Begin with depth=1, increase only if needed
+2. **Use domain restriction**: Enable `only_inside_links` for focused crawls
+3. **Enable caching**: Always use `cache_path` for large crawls
+4. **Monitor progress**: Enable `verbose` mode to track crawling
+5. **Test first**: Test on small sites before large-scale crawls
+6. **Respect robots.txt**: Be mindful of site policies
+7. **Rate limit**: Don't overwhelm target servers
+
+## Related Graphs
+
+- [SearchGraph](/api/graphs/search-graph) - Search internet and scrape top results
+- [SmartScraperGraph](/api/graphs/smart-scraper-graph) - Scrape single page
+- [SmartScraperMultiGraph](/api/graphs/multi-graphs) - Scrape specific list of URLs

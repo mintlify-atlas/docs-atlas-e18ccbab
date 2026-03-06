@@ -1,0 +1,533 @@
+---
+title: 'Ollama Configuration'
+description: 'Run LLMs locally with Ollama for free and private web scraping'
+icon: 'laptop'
+---
+
+## Overview
+
+Ollama allows you to run large language models locally on your machine. This means:
+
+- **Free**: No API costs
+- **Private**: Your data never leaves your computer
+- **Fast**: No network latency
+- **Offline**: Works without internet connection
+
+Perfect for development, testing, or privacy-sensitive projects.
+
+## Prerequisites
+
+<Steps>
+  <Step title="Install Ollama">
+    Download and install Ollama from [ollama.ai](https://ollama.ai):
+    
+    <CodeGroup>
+    ```bash macOS
+    # Download from ollama.ai or use Homebrew
+    brew install ollama
+    ```
+    
+    ```bash Linux
+    curl -fsSL https://ollama.ai/install.sh | sh
+    ```
+    
+    ```bash Windows
+    # Download installer from ollama.ai
+    ```
+    </CodeGroup>
+  </Step>
+  
+  <Step title="Start Ollama Server">
+    ```bash
+    ollama serve
+    ```
+    
+    The server will start on `http://localhost:11434`
+  </Step>
+  
+  <Step title="Pull a Model">
+    Download a model (e.g., Llama 3.2):
+    
+    ```bash
+    ollama pull llama3.2
+    ```
+    
+    <Info>
+      First-time download may take a few minutes depending on model size.
+    </Info>
+  </Step>
+  
+  <Step title="Install ScrapeGraphAI">
+    ```bash
+    pip install scrapegraphai
+    playwright install
+    ```
+  </Step>
+</Steps>
+
+## Basic Configuration
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "ollama/llama3.2",
+        "temperature": 0,
+        "model_tokens": 4096,
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+smart_scraper_graph = SmartScraperGraph(
+    prompt="Find some information about the founders.",
+    source="https://scrapegraphai.com/",
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+print(result)
+```
+
+<Note>
+  This example is from: `examples/smart_scraper_graph/ollama/smart_scraper_ollama.py`
+</Note>
+
+## Recommended Models
+
+<Tabs>
+  <Tab title="Recommended">
+    ### Llama 3.2 (Best for Most Tasks)
+    
+    ```python
+    graph_config = {
+        "llm": {
+            "model": "ollama/llama3.2",
+            "temperature": 0,
+            "model_tokens": 128000,
+        },
+    }
+    ```
+    
+    ```bash
+    # Pull the model
+    ollama pull llama3.2
+    ```
+    
+    - **Size**: 7B parameters
+    - **Context**: 128K tokens
+    - **RAM**: ~8GB
+    - **Best for**: General scraping tasks
+
+    ### Llama 3.3 70B (Highest Quality)
+    
+    ```python
+    graph_config = {
+        "llm": {
+            "model": "ollama/llama3.3",
+            "temperature": 0,
+            "model_tokens": 128000,
+        },
+    }
+    ```
+    
+    ```bash
+    ollama pull llama3.3:70b
+    ```
+    
+    - **Size**: 70B parameters
+    - **Context**: 128K tokens
+    - **RAM**: ~40GB
+    - **Best for**: Complex scraping, highest accuracy
+  </Tab>
+  
+  <Tab title="Fast & Lightweight">
+    ### Llama 3.2 1B (Ultra Fast)
+    
+    ```python
+    graph_config = {
+        "llm": {
+            "model": "ollama/llama3.2:1b",
+            "temperature": 0,
+            "model_tokens": 128000,
+        },
+    }
+    ```
+    
+    ```bash
+    ollama pull llama3.2:1b
+    ```
+    
+    - **RAM**: ~2GB
+    - **Best for**: Simple scraping, low-resource systems
+
+    ### Gemma 2 (Google)
+    
+    ```python
+    graph_config = {
+        "llm": {
+            "model": "ollama/gemma2",
+            "temperature": 0,
+            "model_tokens": 128000,
+        },
+    }
+    ```
+    
+    ```bash
+    ollama pull gemma2
+    ```
+    
+    - **RAM**: ~6GB
+    - **Best for**: Balanced performance
+  </Tab>
+  
+  <Tab title="Specialized">
+    ### Mistral (European)
+    
+    ```python
+    graph_config = {
+        "llm": {
+            "model": "ollama/mistral",
+            "temperature": 0,
+            "format": "json",
+            "model_tokens": 128000,
+        },
+    }
+    ```
+    
+    ```bash
+    ollama pull mistral
+    ```
+    
+    - **RAM**: ~8GB
+    - **Best for**: JSON output, European languages
+
+    ### Qwen 2.5 (Chinese)
+    
+    ```python
+    graph_config = {
+        "llm": {
+            "model": "ollama/qwen:14b",
+            "temperature": 0,
+        },
+    }
+    ```
+    
+    ```bash
+    ollama pull qwen:14b
+    ```
+    
+    - **Best for**: Chinese content, multilingual
+  </Tab>
+</Tabs>
+
+## Configuration Options
+
+### Custom Base URL
+
+If Ollama is running on a different host or port:
+
+```python
+graph_config = {
+    "llm": {
+        "model": "ollama/llama3.2",
+        "base_url": "http://192.168.1.100:11434",  # Remote Ollama server
+        "temperature": 0,
+    },
+}
+```
+
+### JSON Format Mode
+
+Force JSON output (required for some models):
+
+```python
+graph_config = {
+    "llm": {
+        "model": "ollama/mistral",
+        "temperature": 0,
+        "format": "json",  # Ollama needs format specified
+    },
+}
+```
+
+<Warning>
+  Some Ollama models require `"format": "json"` for structured output. If you get parsing errors, add this option.
+</Warning>
+
+### Embeddings Configuration
+
+Use local embeddings for better RAG performance:
+
+```python
+graph_config = {
+    "llm": {
+        "model": "ollama/llama3.2",
+        "temperature": 0,
+    },
+    "embeddings": {
+        "model": "ollama/nomic-embed-text",
+        "temperature": 0,
+    },
+}
+```
+
+```bash
+# Pull the embedding model
+ollama pull nomic-embed-text
+```
+
+## Complete Examples
+
+<CodeGroup>
+```python Basic Scraping
+from scrapegraphai.graphs import SmartScraperGraph
+from scrapegraphai.utils import prettify_exec_info
+
+graph_config = {
+    "llm": {
+        "model": "ollama/llama3.2",
+        "temperature": 0,
+        "model_tokens": 4096,
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+smart_scraper_graph = SmartScraperGraph(
+    prompt="Find some information about the founders.",
+    source="https://scrapegraphai.com/",
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+print(result)
+
+# Get execution info
+graph_exec_info = smart_scraper_graph.get_execution_info()
+print(prettify_exec_info(graph_exec_info))
+```
+
+```python With Embeddings
+from scrapegraphai.graphs import SmartScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "ollama/mistral",
+        "temperature": 0,
+        "format": "json",
+    },
+    "embeddings": {
+        "model": "ollama/nomic-embed-text",
+        "temperature": 0,
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+smart_scraper_graph = SmartScraperGraph(
+    prompt="List me all the titles",
+    source="https://www.wired.com/",
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+print(result)
+```
+
+```python Remote Ollama Server
+from scrapegraphai.graphs import SmartScraperGraph
+
+# Connect to Ollama on a different machine
+graph_config = {
+    "llm": {
+        "model": "ollama/llama3.3:70b",
+        "base_url": "http://192.168.1.100:11434",
+        "temperature": 0,
+        "model_tokens": 128000,
+    },
+    "verbose": True,
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Extract product information",
+    source="https://example.com",
+    config=graph_config,
+)
+
+result = smart_scraper.run()
+print(result)
+```
+
+```python Multi-Page with Ollama
+from scrapegraphai.graphs import SmartScraperMultiGraph
+
+graph_config = {
+    "llm": {
+        "model": "ollama/llama3.2",
+        "temperature": 0,
+    },
+    "verbose": True,
+}
+
+urls = [
+    "https://example.com/page1",
+    "https://example.com/page2",
+    "https://example.com/page3",
+]
+
+multi_scraper = SmartScraperMultiGraph(
+    prompt="Extract all product names",
+    source=urls,
+    config=graph_config,
+)
+
+result = multi_scraper.run()
+print(result)
+```
+</CodeGroup>
+
+## Available Models
+
+View all available models:
+
+```bash
+ollama list
+```
+
+Popular models for scraping:
+
+| Model | Size | Context | RAM Needed |
+|-------|------|---------|------------|
+| `llama3.2:1b` | 1B | 128K | ~2GB |
+| `llama3.2` | 7B | 128K | ~8GB |
+| `llama3.3:70b` | 70B | 128K | ~40GB |
+| `mistral` | 7B | 128K | ~8GB |
+| `gemma2` | 9B | 128K | ~6GB |
+| `qwen:14b` | 14B | 32K | ~10GB |
+| `codellama` | 7B | 16K | ~8GB |
+| `nomic-embed-text` | - | 8K | ~1GB |
+
+Pull any model:
+
+```bash
+ollama pull <model-name>
+```
+
+## Performance Tips
+
+<AccordionGroup>
+  <Accordion title="Use GPU Acceleration">
+    Ollama automatically uses GPU if available. Verify with:
+    
+    ```bash
+    ollama ps
+    ```
+    
+    For NVIDIA GPUs, ensure CUDA is installed. For Apple Silicon, Metal is used automatically.
+  </Accordion>
+  
+  <Accordion title="Increase Context Length">
+    For long documents, increase `model_tokens`:
+    
+    ```python
+    "llm": {
+        "model": "ollama/llama3.2",
+        "model_tokens": 128000,  # Maximum context
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Keep Model in Memory">
+    Ollama keeps models in memory for 5 minutes by default. Increase this:
+    
+    ```bash
+    # Set to 1 hour
+    export OLLAMA_KEEP_ALIVE=1h
+    ollama serve
+    ```
+  </Accordion>
+  
+  <Accordion title="Use Lighter Models for Simple Tasks">
+    For basic scraping, use smaller models:
+    
+    ```python
+    "model": "ollama/llama3.2:1b"  # Fast and efficient
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Connection Refused">
+    **Error**: `Connection refused to http://localhost:11434`
+    
+    **Solution**: Ensure Ollama is running:
+    ```bash
+    ollama serve
+    ```
+  </Accordion>
+  
+  <Accordion title="Model Not Found">
+    **Error**: `model 'llama3.2' not found`
+    
+    **Solution**: Pull the model first:
+    ```bash
+    ollama pull llama3.2
+    ```
+  </Accordion>
+  
+  <Accordion title="Out of Memory">
+    **Error**: System runs out of RAM
+    
+    **Solution**: Use a smaller model:
+    ```python
+    "model": "ollama/llama3.2:1b"  # Only 2GB RAM
+    ```
+  </Accordion>
+  
+  <Accordion title="JSON Parsing Error">
+    **Error**: Failed to parse JSON response
+    
+    **Solution**: Add `format` parameter:
+    ```python
+    "llm": {
+        "model": "ollama/mistral",
+        "format": "json",  # Force JSON output
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Advantages of Ollama
+
+<CardGroup cols={2}>
+  <Card title="Free" icon="dollar-sign">
+    No API costs - run unlimited scraping jobs
+  </Card>
+  
+  <Card title="Private" icon="lock">
+    Your data never leaves your machine
+  </Card>
+  
+  <Card title="Fast" icon="bolt">
+    No network latency, especially with GPU
+  </Card>
+  
+  <Card title="Offline" icon="wifi">
+    Works without internet connection
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="OpenAI" icon="openai" href="/configuration/openai">
+    Compare with cloud-based OpenAI models
+  </Card>
+  <Card title="Advanced Config" icon="sliders" href="/configuration/advanced">
+    Learn about proxy rotation and browser settings
+  </Card>
+</CardGroup>

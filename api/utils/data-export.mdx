@@ -1,0 +1,246 @@
+---
+title: "Data Export"
+description: "Export scraped data to various file formats"
+---
+
+The data export module provides functions to export scraped data to JSON, CSV, and XML file formats.
+
+## Functions
+
+### export_to_json
+
+```python
+export_to_json(data: List[Dict[str, Any]], filename: str) -> None
+```
+
+Export data to a JSON file with proper formatting and UTF-8 encoding.
+
+<ParamField path="data" type="List[Dict[str, Any]]" required>
+  List of dictionaries containing the data to export. Each dictionary represents a record.
+</ParamField>
+
+<ParamField path="filename" type="str" required>
+  Name of the file to save the JSON data. Can include a path (e.g., "output/data.json").
+</ParamField>
+
+#### Example
+
+```python
+from scrapegraphai.utils import export_to_json
+from scrapegraphai.graphs import SmartScraperGraph
+
+# Configure and run your scraper
+graph_config = {
+    "llm": {"model": "openai/gpt-4o-mini"},
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Extract product names and prices",
+    source="https://example.com/products",
+    config=graph_config,
+)
+
+result = smart_scraper.run()
+
+# Export to JSON
+export_to_json(result, "products.json")
+# Output: Data exported to products.json
+```
+
+#### Output Format
+
+The JSON file is formatted with 4-space indentation:
+
+```json
+[
+    {
+        "product_name": "Wireless Mouse",
+        "price": "$29.99"
+    },
+    {
+        "product_name": "Mechanical Keyboard",
+        "price": "$89.99"
+    }
+]
+```
+
+### export_to_csv
+
+```python
+export_to_csv(data: List[Dict[str, Any]], filename: str) -> None
+```
+
+Export data to a CSV file. The CSV headers are automatically generated from the keys of the first dictionary.
+
+<ParamField path="data" type="List[Dict[str, Any]]" required>
+  List of dictionaries containing the data to export. All dictionaries should have the same keys for consistent CSV structure.
+</ParamField>
+
+<ParamField path="filename" type="str" required>
+  Name of the file to save the CSV data. Can include a path (e.g., "output/data.csv").
+</ParamField>
+
+#### Example
+
+```python
+from scrapegraphai.utils import export_to_csv
+from scrapegraphai.graphs import SmartScraperGraph
+
+# Configure and run your scraper
+graph_config = {
+    "llm": {"model": "openai/gpt-4o-mini"},
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Extract article titles and authors",
+    source="https://example.com/blog",
+    config=graph_config,
+)
+
+result = smart_scraper.run()
+
+# Export to CSV
+export_to_csv(result, "articles.csv")
+# Output: Data exported to articles.csv
+```
+
+#### Output Format
+
+The CSV file includes headers and properly escaped values:
+
+```csv
+title,author,date
+"Getting Started with Web Scraping","John Doe","2024-01-15"
+"Advanced Python Techniques","Jane Smith","2024-01-20"
+```
+
+#### Handling Empty Data
+
+```python
+from scrapegraphai.utils import export_to_csv
+
+# If data is empty, the function will print a message
+empty_data = []
+export_to_csv(empty_data, "output.csv")
+# Output: No data to export
+```
+
+### export_to_xml
+
+```python
+export_to_xml(
+    data: List[Dict[str, Any]],
+    filename: str,
+    root_element: str = "data"
+) -> None
+```
+
+Export data to an XML file with customizable root element name.
+
+<ParamField path="data" type="List[Dict[str, Any]]" required>
+  List of dictionaries containing the data to export. Each dictionary is converted to an XML `<item>` element.
+</ParamField>
+
+<ParamField path="filename" type="str" required>
+  Name of the file to save the XML data. Can include a path (e.g., "output/data.xml").
+</ParamField>
+
+<ParamField path="root_element" type="str" default="data">
+  Name of the root element in the XML structure. Defaults to "data".
+</ParamField>
+
+#### Example
+
+```python
+from scrapegraphai.utils import export_to_xml
+from scrapegraphai.graphs import SmartScraperGraph
+
+# Configure and run your scraper
+graph_config = {
+    "llm": {"model": "openai/gpt-4o-mini"},
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Extract company names and locations",
+    source="https://example.com/companies",
+    config=graph_config,
+)
+
+result = smart_scraper.run()
+
+# Export to XML with default root element
+export_to_xml(result, "companies.xml")
+# Output: Data exported to companies.xml
+
+# Export with custom root element
+export_to_xml(result, "companies_custom.xml", root_element="companies")
+```
+
+#### Output Format
+
+The XML file includes proper declaration and structure:
+
+```xml
+<?xml version='1.0' encoding='utf-8'?>
+<data>
+    <item>
+        <company_name>Tech Corp</company_name>
+        <location>San Francisco</location>
+    </item>
+    <item>
+        <company_name>Data Inc</company_name>
+        <location>New York</location>
+    </item>
+</data>
+```
+
+## Complete Example
+
+```python
+from scrapegraphai.graphs import SmartScraperGraph
+from scrapegraphai.utils import export_to_json, export_to_csv, export_to_xml
+
+# Configure the scraper
+graph_config = {
+    "llm": {"model": "openai/gpt-4o-mini"},
+}
+
+smart_scraper = SmartScraperGraph(
+    prompt="Extract all products with their names, prices, and ratings",
+    source="https://example.com/products",
+    config=graph_config,
+)
+
+# Run the scraper
+result = smart_scraper.run()
+print(f"Extracted {len(result)} products")
+
+# Export to multiple formats
+export_to_json(result, "products.json")
+export_to_csv(result, "products.csv")
+export_to_xml(result, "products.xml", root_element="products")
+
+print("Data exported to all formats successfully!")
+```
+
+## Best Practices
+
+1. **Consistent Data Structure**: Ensure all dictionaries in your data list have the same keys for clean CSV exports.
+
+2. **File Paths**: Use absolute or relative paths for better organization:
+   ```python
+   export_to_json(data, "output/2024/january/products.json")
+   ```
+
+3. **Error Handling**: Wrap exports in try-except blocks for production code:
+   ```python
+   try:
+       export_to_csv(result, "output.csv")
+   except Exception as e:
+       print(f"Export failed: {e}")
+   ```
+
+4. **Format Selection**:
+   - Use **JSON** for structured data and API integration
+   - Use **CSV** for spreadsheet compatibility and data analysis
+   - Use **XML** for legacy system integration or specific format requirements

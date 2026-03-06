@@ -1,0 +1,469 @@
+---
+title: Custom Schemas
+description: Define Pydantic schemas for structured, validated data extraction
+icon: diagram-project
+---
+
+Custom schemas allow you to define the exact structure of extracted data using Pydantic models. This ensures type safety, validation, and consistent output format.
+
+## Overview
+
+This example demonstrates how to:
+- Define Pydantic models for your data
+- Use schemas with different graph types
+- Validate extracted data automatically
+- Create complex nested structures
+
+## Basic Schema Example
+
+Define a simple schema for project extraction:
+
+```python
+import os
+from typing import List
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field
+from scrapegraphai.graphs import SmartScraperGraph
+
+load_dotenv()
+
+# Define the output schema for the graph
+class Project(BaseModel):
+    title: str = Field(description="The title of the project")
+    description: str = Field(description="The description of the project")
+
+class Projects(BaseModel):
+    projects: List[Project]
+
+# Define the configuration for the graph
+openai_key = os.getenv("OPENAI_APIKEY")
+
+graph_config = {
+    "llm": {
+        "api_key": openai_key,
+        "model": "openai/gpt-4o-mini",
+    },
+    "verbose": True,
+    "headless": False,
+}
+
+# Create the SmartScraperGraph instance and run it
+smart_scraper_graph = SmartScraperGraph(
+    prompt="List me all the projects with their description",
+    source="https://perinim.github.io/projects/",
+    schema=Projects,
+    config=graph_config,
+)
+
+result = smart_scraper_graph.run()
+print(result)
+```
+
+## Step-by-Step Breakdown
+
+<Steps>
+  <Step title="Import Pydantic">
+    ```python
+    from typing import List
+    from pydantic import BaseModel, Field
+    ```
+    
+    Import Pydantic components for schema definition.
+  </Step>
+  
+  <Step title="Define your models">
+    ```python
+    class Project(BaseModel):
+        title: str = Field(description="The title of the project")
+        description: str = Field(description="The description of the project")
+    
+    class Projects(BaseModel):
+        projects: List[Project]
+    ```
+    
+    Create nested models with clear field descriptions. The descriptions help the AI understand what to extract.
+  </Step>
+  
+  <Step title="Pass schema to graph">
+    ```python
+    smart_scraper_graph = SmartScraperGraph(
+        prompt="List me all the projects with their description",
+        source="https://perinim.github.io/projects/",
+        schema=Projects,  # Pass your Pydantic model
+        config=graph_config,
+    )
+    ```
+    
+    The schema parameter ensures the output matches your defined structure.
+  </Step>
+  
+  <Step title="Get validated results">
+    ```python
+    result = smart_scraper_graph.run()
+    # result is already validated and structured according to your schema
+    ```
+    
+    The output automatically validates against your schema.
+  </Step>
+</Steps>
+
+## Complex Schema Example
+
+Create nested structures with multiple types:
+
+```python
+from typing import List, Optional
+from pydantic import BaseModel, Field, HttpUrl
+from datetime import datetime
+
+class Author(BaseModel):
+    name: str = Field(description="Author's full name")
+    email: Optional[str] = Field(description="Contact email", default=None)
+    profile_url: Optional[HttpUrl] = Field(description="Profile page URL", default=None)
+
+class Article(BaseModel):
+    title: str = Field(description="Article headline")
+    summary: str = Field(description="Brief summary of the article")
+    author: Author = Field(description="Article author information")
+    published_date: Optional[str] = Field(description="Publication date", default=None)
+    tags: List[str] = Field(description="Article tags or categories", default=[])
+    read_time: Optional[int] = Field(description="Estimated reading time in minutes", default=None)
+
+class NewsPage(BaseModel):
+    articles: List[Article] = Field(description="List of articles on the page")
+    total_count: int = Field(description="Total number of articles")
+
+# Use the schema
+scraper = SmartScraperGraph(
+    prompt="Extract all articles with their authors and metadata",
+    source="https://example-news.com",
+    schema=NewsPage,
+    config=graph_config,
+)
+
+result = scraper.run()
+```
+
+## Field Types and Validation
+
+<Tabs>
+  <Tab title="Basic Types">
+    ```python
+    from pydantic import BaseModel, Field
+    
+    class Product(BaseModel):
+        name: str = Field(description="Product name")
+        price: float = Field(description="Price in USD")
+        in_stock: bool = Field(description="Availability status")
+        quantity: int = Field(description="Available quantity")
+    ```
+    
+    Standard Python types with automatic validation.
+  </Tab>
+  
+  <Tab title="Optional Fields">
+    ```python
+    from typing import Optional
+    from pydantic import BaseModel, Field
+    
+    class Product(BaseModel):
+        name: str = Field(description="Product name")
+        price: float = Field(description="Price in USD")
+        discount: Optional[float] = Field(
+            description="Discount percentage",
+            default=None
+        )
+        rating: Optional[float] = Field(
+            description="Customer rating (1-5)",
+            default=None,
+            ge=1.0,
+            le=5.0
+        )
+    ```
+    
+    Use `Optional` for fields that might not be present.
+  </Tab>
+  
+  <Tab title="Lists and Nested">
+    ```python
+    from typing import List
+    from pydantic import BaseModel, Field
+    
+    class Review(BaseModel):
+        rating: int = Field(description="Rating 1-5", ge=1, le=5)
+        comment: str = Field(description="Review text")
+    
+    class Product(BaseModel):
+        name: str = Field(description="Product name")
+        tags: List[str] = Field(description="Product tags")
+        reviews: List[Review] = Field(description="Customer reviews")
+    ```
+    
+    Create lists and nested objects for complex structures.
+  </Tab>
+  
+  <Tab title="Enums and Constraints">
+    ```python
+    from enum import Enum
+    from pydantic import BaseModel, Field
+    
+    class Category(str, Enum):
+        ELECTRONICS = "electronics"
+        CLOTHING = "clothing"
+        BOOKS = "books"
+    
+    class Product(BaseModel):
+        name: str = Field(description="Product name", min_length=1)
+        price: float = Field(description="Price", gt=0)
+        category: Category = Field(description="Product category")
+        sku: str = Field(
+            description="Stock keeping unit",
+            regex=r"^[A-Z]{3}-\d{4}$"
+        )
+    ```
+    
+    Use enums and constraints for strict validation.
+  </Tab>
+</Tabs>
+
+## Schema with SearchGraph
+
+Combine search capabilities with structured output:
+
+```python
+from typing import List
+from pydantic import BaseModel, Field
+from scrapegraphai.graphs import SearchGraph
+
+class Dish(BaseModel):
+    name: str = Field(description="The name of the dish")
+    description: str = Field(description="The description of the dish")
+    ingredients: List[str] = Field(
+        description="Main ingredients",
+        default=[]
+    )
+
+class Dishes(BaseModel):
+    dishes: List[Dish]
+
+search_graph = SearchGraph(
+    prompt="List me Chioggia's famous dishes",
+    config=graph_config,
+    schema=Dishes
+)
+
+result = search_graph.run()
+```
+
+## Expected Output
+
+With the Projects schema:
+
+```python
+{
+    "projects": [
+        {
+            "title": "ScrapeGraphAI",
+            "description": "Python library for AI-powered web scraping"
+        },
+        {
+            "title": "DataFlow Pipeline",
+            "description": "ETL pipeline for processing large datasets"
+        },
+        {
+            "title": "ML Model Optimizer",
+            "description": "Tool for optimizing machine learning model performance"
+        }
+    ]
+}
+```
+
+The output is a valid Pydantic model instance with full type safety.
+
+## Benefits of Using Schemas
+
+<CardGroup cols={2}>
+  <Card title="Type Safety" icon="shield-check">
+    Get compile-time type checking and IDE autocomplete
+  </Card>
+  
+  <Card title="Validation" icon="circle-check">
+    Automatic validation of extracted data against your rules
+  </Card>
+  
+  <Card title="Documentation" icon="book">
+    Field descriptions serve as inline documentation
+  </Card>
+  
+  <Card title="Consistency" icon="equals">
+    Ensure consistent output structure across runs
+  </Card>
+</CardGroup>
+
+## Advanced Validation
+
+Add custom validators for complex logic:
+
+```python
+from pydantic import BaseModel, Field, validator
+
+class Product(BaseModel):
+    name: str = Field(description="Product name")
+    price: float = Field(description="Price in USD")
+    discount_percent: float = Field(description="Discount percentage")
+    final_price: Optional[float] = None
+    
+    @validator('discount_percent')
+    def validate_discount(cls, v):
+        if v < 0 or v > 100:
+            raise ValueError('Discount must be between 0 and 100')
+        return v
+    
+    @validator('final_price', always=True)
+    def calculate_final_price(cls, v, values):
+        if 'price' in values and 'discount_percent' in values:
+            price = values['price']
+            discount = values['discount_percent']
+            return price * (1 - discount / 100)
+        return v
+```
+
+## Schema with Multi-Page Scraping
+
+```python
+from scrapegraphai.graphs import SmartScraperMultiGraph
+
+class ContactInfo(BaseModel):
+    name: str = Field(description="Person's name")
+    email: str = Field(description="Email address")
+    role: str = Field(description="Job title")
+    department: Optional[str] = Field(description="Department", default=None)
+
+class TeamPage(BaseModel):
+    members: List[ContactInfo]
+
+multi_scraper = SmartScraperMultiGraph(
+    prompt="Extract all team member information",
+    source=[
+        "https://company.com/team/engineering",
+        "https://company.com/team/design",
+    ],
+    schema=TeamPage,
+    config=graph_config,
+)
+
+results = multi_scraper.run()
+# Results from each page validated against TeamPage schema
+```
+
+## Export Structured Data
+
+```python
+from scrapegraphai.utils import convert_to_csv, convert_to_json
+
+# Run scraper with schema
+result = smart_scraper_graph.run()
+
+# Export to different formats
+convert_to_json(result, "output")  # Saves as output.json
+convert_to_csv(result, "output")   # Saves as output.csv
+
+# Access as Python objects
+for project in result.projects:
+    print(f"Project: {project.title}")
+    print(f"Description: {project.description}")
+```
+
+## Common Patterns
+
+### E-commerce Product Schema
+
+```python
+class Price(BaseModel):
+    amount: float = Field(description="Price amount")
+    currency: str = Field(description="Currency code")
+
+class Product(BaseModel):
+    name: str = Field(description="Product name")
+    price: Price = Field(description="Product price")
+    rating: Optional[float] = Field(description="Average rating")
+    review_count: int = Field(description="Number of reviews")
+    in_stock: bool = Field(description="Availability")
+    image_url: Optional[HttpUrl] = Field(description="Product image")
+```
+
+### News Article Schema
+
+```python
+class Article(BaseModel):
+    headline: str = Field(description="Article title")
+    author: str = Field(description="Author name")
+    date: str = Field(description="Publication date")
+    summary: str = Field(description="Article summary")
+    content: str = Field(description="Full article text")
+    category: str = Field(description="Article category")
+    tags: List[str] = Field(description="Article tags")
+```
+
+### Contact Information Schema
+
+```python
+class Address(BaseModel):
+    street: str = Field(description="Street address")
+    city: str = Field(description="City")
+    state: str = Field(description="State")
+    zip_code: str = Field(description="ZIP code")
+
+class Contact(BaseModel):
+    name: str = Field(description="Contact name")
+    email: str = Field(description="Email address")
+    phone: Optional[str] = Field(description="Phone number")
+    address: Optional[Address] = Field(description="Physical address")
+```
+
+## Tips for Better Schemas
+
+<Note>
+**Clear descriptions**: Write detailed field descriptions to help the AI extract the right data.
+</Note>
+
+<Note>
+**Optional fields**: Use `Optional` for fields that might not always be present on the page.
+</Note>
+
+<Note>
+**Nested structures**: Break complex data into nested models for better organization.
+</Note>
+
+<Note>
+**Validation rules**: Add constraints (min/max values, regex patterns) for data quality.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Basic Scraping" icon="globe" href="/examples/basic-scraping">
+    Apply schemas to basic scraping
+  </Card>
+  
+  <Card title="Search Integration" icon="magnifying-glass" href="/examples/search-integration">
+    Use schemas with search results
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+**Issue**: Validation errors
+- Check if field descriptions are clear
+- Make uncertain fields `Optional`
+- Verify field types match the data
+
+**Issue**: Missing data
+- Ensure field descriptions guide the AI correctly
+- Check if the data actually exists on the page
+- Use default values for optional fields
+
+**Issue**: Incorrect types
+- Use appropriate Pydantic types (HttpUrl, datetime, etc.)
+- Add validation rules with `Field` constraints
+- Consider using custom validators for complex logic

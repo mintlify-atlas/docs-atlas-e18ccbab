@@ -1,0 +1,486 @@
+---
+title: "GenerateAnswerNode"
+description: "Generate answers from scraped content using LLMs"
+---
+
+## Overview
+
+The `GenerateAnswerNode` is responsible for generating answers from scraped content using language models. It supports both single-chunk and multi-chunk processing with parallel execution and automatic merging.
+
+## Class Signature
+
+```python
+class GenerateAnswerNode(BaseNode):
+    def __init__(
+        self,
+        input: str,
+        output: List[str],
+        node_config: Optional[dict] = None,
+        node_name: str = "GenerateAnswer",
+    )
+```
+
+Source: `scrapegraphai/nodes/generate_answer_node.py:30`
+
+## Parameters
+
+<ParamField path="input" type="str" required>
+  Boolean expression defining the input keys needed from the state. Common patterns:
+  - `"user_prompt & document"` - User question with document
+  - `"user_prompt & parsed_doc"` - User question with parsed chunks
+  - `"user_prompt & relevant_chunks"` - User question with relevant content
+</ParamField>
+
+<ParamField path="output" type="List[str]" required>
+  List of output keys to be updated in the state. Typically `["answer"]`
+</ParamField>
+
+<ParamField path="node_config" type="dict" required>
+  Configuration dictionary with the following options:
+
+  <Expandable title="Configuration Options">
+    <ParamField path="llm_model" type="object" required>
+      Language model instance (ChatOpenAI, ChatOllama, ChatBedrock, etc.)
+    </ParamField>
+
+    <ParamField path="schema" type="BaseModel" default="None">
+      Pydantic model defining the expected output structure
+    </ParamField>
+
+    <ParamField path="verbose" type="bool" default="False">
+      Whether to show progress bars during chunk processing
+    </ParamField>
+
+    <ParamField path="force" type="bool" default="False">
+      Force markdown-based prompt templates
+    </ParamField>
+
+    <ParamField path="script_creator" type="bool" default="False">
+      Whether the node is in script creation mode
+    </ParamField>
+
+    <ParamField path="is_md_scraper" type="bool" default="False">
+      Whether processing markdown content
+    </ParamField>
+
+    <ParamField path="additional_info" type="str" default="None">
+      Additional context to prepend to prompt templates
+    </ParamField>
+
+    <ParamField path="timeout" type="int" default="480">
+      Timeout in seconds for LLM inference (per chunk or merge operation)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="node_name" type="str" default="GenerateAnswer">
+  The unique identifier name for the node
+</ParamField>
+
+## State Keys
+
+### Input State
+
+<ParamField path="user_prompt" type="str">
+  The user's question or instruction for content extraction
+</ParamField>
+
+<ParamField path="document" type="List[Document] | List[str]">
+  Document content to process (raw format)
+</ParamField>
+
+<ParamField path="parsed_doc" type="List[str]">
+  Pre-chunked document content
+</ParamField>
+
+<ParamField path="relevant_chunks" type="List[str]">
+  Filtered relevant content chunks
+</ParamField>
+
+<ParamField path="content" type="str | List[str]">
+  Generic content field (fallback option)
+</ParamField>
+
+### Output State
+
+<ParamField path="answer" type="dict | str">
+  Generated answer, either as structured JSON (if schema provided) or plain text
+</ParamField>
+
+## Methods
+
+### execute(state: dict) -> dict
+
+Executes the GenerateAnswerNode to generate an answer from the provided content.
+
+```python
+def execute(self, state: dict) -> dict:
+    """
+    Executes the GenerateAnswerNode.
+    
+    Args:
+        state (dict): The current state of the graph.
+    
+    Returns:
+        dict: The updated state with the output key containing the generated answer.
+    """
+```
+
+Source: `scrapegraphai/nodes/generate_answer_node.py:118`
+
+**Processing Logic:**
+- **Single chunk**: Direct LLM inference
+- **Multiple chunks**: Parallel processing + merge step
+
+**Returns:** Updated state dictionary with generated answer
+
+### invoke_with_timeout(chain, inputs, timeout)
+
+Helper method to invoke LangChain with timeout protection.
+
+```python
+def invoke_with_timeout(self, chain, inputs, timeout):
+    """Helper method to invoke chain with timeout"""
+```
+
+Source: `scrapegraphai/nodes/generate_answer_node.py:75`
+
+## Usage Examples
+
+### Basic Answer Generation
+
+```python
+from scrapegraphai.nodes import GenerateAnswerNode
+from langchain_openai import ChatOpenAI
+
+# Create generate answer node
+generate_node = GenerateAnswerNode(
+    input="user_prompt & parsed_doc",
+    output=["answer"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "verbose": False,
+        "timeout": 480
+    }
+)
+
+# Execute node
+state = {
+    "user_prompt": "What is the main topic of this article?",
+    "parsed_doc": ["Article content chunk 1...", "Article content chunk 2..."]
+}
+updated_state = generate_node.execute(state)
+
+print(updated_state["answer"])
+# Output: {"content": "The main topic is..."}
+```
+
+### Structured Output with Schema
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class ProductInfo(BaseModel):
+    name: str = Field(description="Product name")
+    price: float = Field(description="Product price")
+    features: List[str] = Field(description="List of product features")
+
+generate_node = GenerateAnswerNode(
+    input="user_prompt & document",
+    output=["answer"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "schema": ProductInfo,  # Define output structure
+        "verbose": True
+    }
+)
+
+state = {
+    "user_prompt": "Extract product information",
+    "document": [Document(page_content="Product page content...")]
+}
+updated_state = generate_node.execute(state)
+
+print(updated_state["answer"])
+# Output: {"name": "...", "price": 99.99, "features": [...]}
+```
+
+### Multi-Chunk Parallel Processing
+
+```python
+generate_node = GenerateAnswerNode(
+    input="user_prompt & parsed_doc",
+    output=["answer"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "verbose": True,  # Show progress bar
+        "timeout": 600  # Longer timeout for multiple chunks
+    }
+)
+
+state = {
+    "user_prompt": "Summarize all the key points",
+    "parsed_doc": [
+        "Chunk 1 content...",
+        "Chunk 2 content...",
+        "Chunk 3 content...",
+        "Chunk 4 content..."
+    ]
+}
+updated_state = generate_node.execute(state)
+# Processes all chunks in parallel, then merges results
+```
+
+### Using Ollama Model
+
+```python
+from langchain_community.chat_models import ChatOllama
+
+generate_node = GenerateAnswerNode(
+    input="user_prompt & document",
+    output=["answer"],
+    node_config={
+        "llm_model": ChatOllama(model="llama3"),
+        "verbose": False
+    }
+)
+
+state = {
+    "user_prompt": "Extract contact information",
+    "document": [Document(page_content="Contact page content...")]
+}
+updated_state = generate_node.execute(state)
+```
+
+### With Additional Context
+
+```python
+generate_node = GenerateAnswerNode(
+    input="user_prompt & parsed_doc",
+    output=["answer"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "additional_info": """You are a financial analyst. 
+                             Focus on extracting numerical data and financial metrics.""",
+        "verbose": False
+    }
+)
+
+state = {
+    "user_prompt": "What are the company's financial metrics?",
+    "parsed_doc": ["Financial report content..."]
+}
+updated_state = generate_node.execute(state)
+```
+
+### Markdown Content Processing
+
+```python
+generate_node = GenerateAnswerNode(
+    input="user_prompt & document",
+    output=["answer"],
+    node_config={
+        "llm_model": ChatOpenAI(model="gpt-4"),
+        "is_md_scraper": True,  # Optimized for markdown content
+        "force": True
+    }
+)
+
+state = {
+    "user_prompt": "Extract all code examples",
+    "document": [Document(page_content="# Tutorial\n\n```python\n...")]
+}
+updated_state = generate_node.execute(state)
+```
+
+### AWS Bedrock Model
+
+```python
+from langchain_aws import ChatBedrock
+
+generate_node = GenerateAnswerNode(
+    input="user_prompt & parsed_doc",
+    output=["answer"],
+    node_config={
+        "llm_model": ChatBedrock(
+            model_id="anthropic.claude-3-sonnet-20240229-v1:0",
+            region_name="us-east-1"
+        ),
+        "verbose": False
+    }
+)
+
+state = {
+    "user_prompt": "Analyze the sentiment",
+    "parsed_doc": ["Customer reviews content..."]
+}
+updated_state = generate_node.execute(state)
+```
+
+## Processing Modes
+
+### Single-Chunk Mode
+
+When the document consists of only one chunk:
+
+1. Uses `TEMPLATE_NO_CHUNKS` prompt template
+2. Direct LLM inference (no parallel processing)
+3. Faster execution
+4. Best for short documents
+
+```python
+# Triggered when len(doc) == 1
+state = {
+    "user_prompt": "Extract info",
+    "parsed_doc": ["Single chunk content"]
+}
+```
+
+### Multi-Chunk Mode
+
+When the document has multiple chunks:
+
+1. **Parallel Processing**: Each chunk processed independently
+   - Uses `TEMPLATE_CHUNKS` prompt template
+   - Runs all chunks in parallel with `RunnableParallel`
+   - Shows progress bar if `verbose=True`
+
+2. **Merge Step**: Combines individual chunk results
+   - Uses `TEMPLATE_MERGE` prompt template
+   - Synthesizes coherent final answer
+   - Removes duplicates and conflicts
+
+```python
+# Triggered when len(doc) > 1
+state = {
+    "user_prompt": "Extract info",
+    "parsed_doc": ["Chunk 1", "Chunk 2", "Chunk 3"]
+}
+```
+
+## Prompt Templates
+
+The node uses different templates based on configuration:
+
+### Standard HTML Templates
+- `TEMPLATE_NO_CHUNKS` - Single chunk processing
+- `TEMPLATE_CHUNKS` - Individual chunk processing
+- `TEMPLATE_MERGE` - Merge multiple chunk results
+
+### Markdown Templates
+- `TEMPLATE_NO_CHUNKS_MD` - Single markdown chunk
+- `TEMPLATE_CHUNKS_MD` - Individual markdown chunks
+- `TEMPLATE_MERGE_MD` - Merge markdown chunk results
+
+Templates are selected based on:
+- `is_md_scraper=True` - Forces markdown templates
+- `force=True` and `script_creator=False` - Forces markdown templates
+- Otherwise uses standard HTML templates
+
+## Output Parsing
+
+### With Schema (Structured Output)
+
+```python
+node_config = {
+    "llm_model": ChatOpenAI(model="gpt-4"),
+    "schema": YourPydanticModel
+}
+# Output is parsed into Pydantic model structure
+```
+
+### Without Schema (JSON Output)
+
+```python
+node_config = {
+    "llm_model": ChatOpenAI(model="gpt-4")
+}
+# Output is parsed as generic JSON with 'content' field
+# Example: {"content": "your analysis here"}
+```
+
+### Special Case: Bedrock Models
+
+Bedrock models bypass output parsers and return raw responses.
+
+## Error Handling
+
+The node handles various error scenarios:
+
+### Timeout Errors
+
+```python
+state = {"answer": {
+    "error": "Response timeout exceeded",
+    "raw_response": "..."
+}}
+```
+
+### JSON Parsing Errors
+
+```python
+state = {"answer": {
+    "error": "Invalid JSON response format",
+    "raw_response": "..."
+}}
+```
+
+### Missing Content
+
+```python
+# Raises ValueError: "No content found in state to generate answer from"
+```
+
+### Missing User Prompt
+
+```python
+# Raises ValueError: "No user prompt found in state"
+```
+
+## Performance Optimization
+
+### Parallel Processing
+
+Multiple chunks are processed in parallel using LangChain's `RunnableParallel`:
+
+```python
+chains_dict = {
+    "chunk1": prompt1 | llm_model,
+    "chunk2": prompt2 | llm_model,
+    "chunk3": prompt3 | llm_model,
+}
+async_runner = RunnableParallel(**chains_dict)
+results = async_runner.invoke({"question": user_prompt})
+```
+
+### Timeout Management
+
+Each operation has independent timeout:
+- Chunk processing: `timeout` seconds per chunk
+- Merge operation: `timeout` seconds for final merge
+
+### Progress Tracking
+
+Enable `verbose=True` to see chunk processing progress:
+
+```python
+Processing chunks: 100%|██████████| 5/5 [00:12<00:00, 2.5s/chunk]
+```
+
+## Best Practices
+
+1. **Set appropriate timeouts** - Longer for complex extractions
+2. **Use schemas for structured data** - Ensures consistent output format
+3. **Enable verbose for debugging** - Monitor processing progress
+4. **Optimize chunk size** - Balance between context and parallelism
+5. **Add context with additional_info** - Improves extraction quality
+6. **Handle errors gracefully** - Check for error fields in output
+7. **Use appropriate templates** - Markdown for docs, HTML for web pages
+
+## Related Nodes
+
+- [FetchNode](/api/nodes/fetch-node) - Fetch content to process
+- [ParseNode](/api/nodes/parse-node) - Parse and chunk content before generation
+- [ReasoningNode](/api/nodes/reasoning-node) - Refine prompts before answer generation
+- [SearchNode](/api/nodes/search-node) - Gather additional context

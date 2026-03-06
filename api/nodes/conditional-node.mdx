@@ -1,0 +1,500 @@
+---
+title: "ConditionalNode"
+description: "Implement branching logic in graphs based on state conditions"
+---
+
+## Overview
+
+The `ConditionalNode` determines the next step in the graph's execution flow based on the presence and content of specified keys in the graph's state, or by evaluating custom conditions. It enables dynamic workflow paths.
+
+## Class Signature
+
+```python
+class ConditionalNode(BaseNode):
+    def __init__(
+        self,
+        input: str,
+        output: List[str],
+        node_config: Optional[dict] = None,
+        node_name: str = "Cond",
+    )
+```
+
+Source: `scrapegraphai/nodes/conditional_node.py:12`
+
+## Parameters
+
+<ParamField path="input" type="str" required>
+  Boolean expression defining the input keys needed from the state. The keys referenced in conditions should be included here.
+</ParamField>
+
+<ParamField path="output" type="List[str]" required>
+  List of two output keys representing the true and false branch node names. Order matters:
+  - `output[0]`: Node to execute if condition is true
+  - `output[1]`: Node to execute if condition is false
+</ParamField>
+
+<ParamField path="node_config" type="dict" required>
+  Configuration dictionary with the following options:
+
+  <Expandable title="Configuration Options">
+    <ParamField path="key_name" type="str" required>
+      The name of the key in the state to check for its presence (used if no `condition` provided)
+    </ParamField>
+
+    <ParamField path="condition" type="str" default="None">
+      Custom condition expression to evaluate. Supports:
+      - Comparison operators: `==`, `!=`, `>`, `<`, `>=`, `<=`
+      - Logical operators: `and`, `or`, `not`
+      - Function: `len()` for length checks
+      - State variables by name
+      
+      Example: `"len(search_results) > 0"`, `"answer != ''"`, `"price > 100 and stock > 0"`
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="node_name" type="str" default="Cond">
+  The unique identifier name for the node
+</ParamField>
+
+## State Keys
+
+### Input State
+
+<ParamField path="key_name" type="any">
+  The key specified in `node_config["key_name"]`. Type depends on condition being evaluated.
+</ParamField>
+
+<ParamField path="*" type="any">
+  Any state keys referenced in the `condition` expression
+</ParamField>
+
+### Output State
+
+Conditional nodes don't modify the state directly. They return the name of the next node to execute:
+
+<ParamField path="return" type="str">
+  Returns either `true_node_name` or `false_node_name` based on condition evaluation
+</ParamField>
+
+## Methods
+
+### execute(state: dict) -> str
+
+Checks if the specified key is present in the state or evaluates a custom condition, then decides the next node.
+
+```python
+def execute(self, state: dict) -> str:
+    """
+    Checks if the specified key is present in the state and decides the next node accordingly.
+    
+    Args:
+        state (dict): The current state of the graph.
+    
+    Returns:
+        str: The name of the next node to execute based on the condition.
+    """
+```
+
+Source: `scrapegraphai/nodes/conditional_node.py:61`
+
+**Returns:** Name of the next node to execute (either `true_node_name` or `false_node_name`)
+
+### _evaluate_condition(state: dict, condition: str) -> bool
+
+Parses and evaluates the condition expression against the state.
+
+```python
+def _evaluate_condition(self, state: dict, condition: str) -> bool:
+    """
+    Parses and evaluates the condition expression against the state.
+    
+    Args:
+        state (dict): The current state of the graph.
+        condition (str): The condition expression to evaluate.
+    
+    Returns:
+        bool: The result of the condition evaluation.
+    """
+```
+
+Source: `scrapegraphai/nodes/conditional_node.py:86`
+
+## Usage Examples
+
+### Simple Key Presence Check
+
+```python
+from scrapegraphai.nodes import ConditionalNode
+
+# Create conditional node
+cond_node = ConditionalNode(
+    input="search_results",
+    output=["process_results", "fallback_search"],
+    node_config={
+        "key_name": "search_results"
+    },
+    node_name="CheckSearchResults"
+)
+
+# Set branch nodes
+cond_node.true_node_name = "process_results"
+cond_node.false_node_name = "fallback_search"
+
+# Execute node
+state = {"search_results": [...]}
+next_node = cond_node.execute(state)
+print(next_node)  # Output: "process_results"
+
+# Empty results
+state = {"search_results": []}
+next_node = cond_node.execute(state)
+print(next_node)  # Output: "fallback_search"
+```
+
+### Length Condition
+
+```python
+cond_node = ConditionalNode(
+    input="parsed_doc",
+    output=["generate_answer", "fetch_more"],
+    node_config={
+        "key_name": "parsed_doc",
+        "condition": "len(parsed_doc) > 3"  # Check if enough chunks
+    },
+    node_name="CheckChunkCount"
+)
+
+cond_node.true_node_name = "generate_answer"
+cond_node.false_node_name = "fetch_more"
+
+state = {"parsed_doc": ["chunk1", "chunk2", "chunk3", "chunk4"]}
+next_node = cond_node.execute(state)
+print(next_node)  # Output: "generate_answer"
+```
+
+### Comparison Condition
+
+```python
+cond_node = ConditionalNode(
+    input="price & budget",
+    output=["proceed_purchase", "search_alternatives"],
+    node_config={
+        "key_name": "price",
+        "condition": "price <= budget"  # Check affordability
+    },
+    node_name="CheckPrice"
+)
+
+cond_node.true_node_name = "proceed_purchase"
+cond_node.false_node_name = "search_alternatives"
+
+state = {"price": 50, "budget": 100}
+next_node = cond_node.execute(state)
+print(next_node)  # Output: "proceed_purchase"
+```
+
+### Complex Logical Condition
+
+```python
+cond_node = ConditionalNode(
+    input="answer & confidence",
+    output=["return_answer", "retry_with_more_context"],
+    node_config={
+        "key_name": "answer",
+        "condition": "answer != '' and confidence > 0.8"  # Valid answer with high confidence
+    },
+    node_name="ValidateAnswer"
+)
+
+cond_node.true_node_name = "return_answer"
+cond_node.false_node_name = "retry_with_more_context"
+
+state = {"answer": "The capital is Paris", "confidence": 0.95}
+next_node = cond_node.execute(state)
+print(next_node)  # Output: "return_answer"
+```
+
+### Multiple Conditions with AND
+
+```python
+cond_node = ConditionalNode(
+    input="document & url & parsed_doc",
+    output=["proceed", "retry_fetch"],
+    node_config={
+        "key_name": "document",
+        "condition": "len(document) > 0 and len(parsed_doc) > 0"  # Both must exist
+    },
+    node_name="ValidateContent"
+)
+
+cond_node.true_node_name = "proceed"
+cond_node.false_node_name = "retry_fetch"
+
+state = {
+    "document": [Document(...)],
+    "url": "https://example.com",
+    "parsed_doc": ["chunk1", "chunk2"]
+}
+next_node = cond_node.execute(state)
+print(next_node)  # Output: "proceed"
+```
+
+### Error Handling Branch
+
+```python
+cond_node = ConditionalNode(
+    input="answer",
+    output=["success", "error_handler"],
+    node_config={
+        "key_name": "answer",
+        "condition": "'error' not in answer"  # Check for errors
+    },
+    node_name="CheckErrors"
+)
+
+cond_node.true_node_name = "success"
+cond_node.false_node_name = "error_handler"
+
+state = {"answer": {"content": "Result data"}}
+next_node = cond_node.execute(state)
+print(next_node)  # Output: "success"
+
+state = {"answer": {"error": "Timeout exceeded"}}
+next_node = cond_node.execute(state)
+print(next_node)  # Output: "error_handler"
+```
+
+### Numeric Threshold
+
+```python
+cond_node = ConditionalNode(
+    input="search_results",
+    output=["analyze_results", "search_more"],
+    node_config={
+        "key_name": "search_results",
+        "condition": "len(search_results) >= 5"  # Minimum results threshold
+    },
+    node_name="CheckResultCount"
+)
+
+cond_node.true_node_name = "analyze_results"
+cond_node.false_node_name = "search_more"
+
+state = {"search_results": [{"url": "..."}, {"url": "..."}, ...]}
+next_node = cond_node.execute(state)
+```
+
+## Condition Expressions
+
+### Supported Operators
+
+#### Comparison Operators
+
+```python
+# Equality
+"answer == 'success'"         # Equal to
+"status != 'error'"            # Not equal to
+
+# Numeric comparison
+"price > 100"                  # Greater than
+"count < 10"                   # Less than
+"confidence >= 0.8"            # Greater than or equal
+"temperature <= 30"            # Less than or equal
+```
+
+#### Logical Operators
+
+```python
+# AND - Both conditions must be true
+"price > 50 and price < 100"
+"answer != '' and confidence > 0.8"
+
+# OR - At least one condition must be true
+"status == 'success' or status == 'completed'"
+"len(results) > 0 or has_cache"
+
+# NOT - Negates a condition
+"not is_error"
+"not (price > 1000)"
+```
+
+#### Built-in Functions
+
+```python
+# len() - Get length of sequences
+"len(results) > 0"             # Non-empty list
+"len(answer) > 100"            # String length check
+"len(parsed_doc) >= 3"         # Minimum chunks
+```
+
+### Expression Examples
+
+```python
+# Simple presence check (default behavior)
+node_config = {"key_name": "answer"}
+# True if 'answer' exists and is not empty
+
+# Empty check
+node_config = {
+    "key_name": "results",
+    "condition": "len(results) > 0"
+}
+
+# Type check with comparison
+node_config = {
+    "key_name": "answer",
+    "condition": "isinstance(answer, dict) and 'content' in answer"
+}
+# Note: isinstance not supported, use alternative checks
+
+# Multiple field validation
+node_config = {
+    "key_name": "data",
+    "condition": "data != '' and len(data) > 10 and data != 'error'"
+}
+
+# Numeric range
+node_config = {
+    "key_name": "score",
+    "condition": "score >= 0.5 and score <= 1.0"
+}
+```
+
+## Graph Integration
+
+Conditional nodes are typically used with graphs to create branching workflows:
+
+```python
+from scrapegraphai.graphs import BaseGraph
+from scrapegraphai.nodes import FetchNode, ParseNode, GenerateAnswerNode, ConditionalNode
+
+# Define nodes
+fetch = FetchNode(...)
+parse = ParseNode(...)
+check = ConditionalNode(
+    input="parsed_doc",
+    output=["generate", "fetch_more"],
+    node_config={
+        "key_name": "parsed_doc",
+        "condition": "len(parsed_doc) > 2"
+    }
+)
+generate = GenerateAnswerNode(...)
+fetch_more = FetchNode(...)  # Alternative path
+
+# Set conditional branches
+check.true_node_name = "generate"
+check.false_node_name = "fetch_more"
+
+# Build graph
+graph = BaseGraph()
+graph.add_edge(fetch, parse)
+graph.add_edge(parse, check)
+graph.add_conditional_edge(check, generate, fetch_more)
+```
+
+## Best Practices
+
+1. **Use descriptive node names** - Makes flow easier to understand
+   ```python
+   node_name="CheckSearchResults" # Good
+   node_name="Cond"              # Less clear
+   ```
+
+2. **Set branch nodes explicitly** - Always configure true/false paths
+   ```python
+   cond_node.true_node_name = "success_path"
+   cond_node.false_node_name = "fallback_path"
+   ```
+
+3. **Keep conditions simple** - Break complex logic into multiple nodes
+   ```python
+   # Good: Simple condition
+   "len(results) > 0"
+   
+   # Consider splitting: Complex nested condition
+   "len(results) > 0 and (price < 100 or discount > 0.2) and status == 'active'"
+   ```
+
+4. **Handle both branches** - Ensure both true/false paths lead somewhere
+   ```python
+   # Always define both paths
+   output=["success_handler", "error_handler"]
+   ```
+
+5. **Test edge cases** - Verify behavior with empty, null, and missing values
+   ```python
+   # Test with:
+   state = {"key": ""}      # Empty string
+   state = {"key": None}    # None value
+   state = {}               # Missing key
+   ```
+
+6. **Document conditions** - Add comments explaining complex logic
+   ```python
+   node_config = {
+       "key_name": "price",
+       "condition": "price > 100 and price < 1000"  # Price range validation
+   }
+   ```
+
+7. **Use appropriate operators** - Choose the right comparison for your data type
+   ```python
+   "len(list_var) > 0"     # For lists
+   "string_var != ''"      # For strings
+   "number_var >= 0"       # For numbers
+   ```
+
+## Error Handling
+
+### Missing Configuration
+
+```python
+# Raises NotImplementedError: "You need to provide key_name inside the node config"
+cond_node = ConditionalNode(
+    input="answer",
+    output=["true", "false"],
+    node_config={}  # Missing key_name
+)
+```
+
+### Invalid Condition Expression
+
+```python
+# Raises ValueError: "Error evaluating condition..."
+node_config = {
+    "key_name": "answer",
+    "condition": "invalid syntax ===="  # Invalid Python expression
+}
+```
+
+### Unset Branch Nodes
+
+```python
+# Raises ValueError: "ConditionalNode's next nodes are not set properly."
+cond_node.execute(state)  # Without setting true_node_name and false_node_name
+```
+
+## Security Considerations
+
+The ConditionalNode uses `simpleeval` for safe expression evaluation:
+
+- **Limited functions**: Only `len()` is available
+- **No arbitrary code execution**: Prevents malicious code injection
+- **Safe operators**: Only comparison and logical operators allowed
+- **No imports**: Cannot import modules or access system resources
+
+## Performance Considerations
+
+- **Negligible overhead**: Condition evaluation is very fast (less than 1ms)
+- **No I/O operations**: Pure computational logic
+- **No blocking**: Executes synchronously without delays
+- **Memory efficient**: Doesn't store or copy state data
+
+## Related Nodes
+
+- [GenerateAnswerNode](/api/nodes/generate-answer-node) - Often used in true branch
+- [SearchNode](/api/nodes/search-node) - Often used in false branch for retry logic
+- [FetchNode](/api/nodes/fetch-node) - Used in branches for alternative data sources

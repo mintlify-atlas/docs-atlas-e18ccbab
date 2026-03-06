@@ -1,0 +1,469 @@
+---
+title: ScriptCreatorGraph
+description: Generate web scraping scripts from natural language prompts
+icon: "code"
+---
+
+## Overview
+
+`ScriptCreatorGraph` defines a scraping pipeline for generating web scraping scripts. Instead of extracting data, it generates Python code that can scrape the specified information from a website.
+
+## Class Signature
+
+```python
+class ScriptCreatorGraph(AbstractGraph):
+    def __init__(
+        self,
+        prompt: str,
+        source: str,
+        config: dict,
+        schema: Optional[Type[BaseModel]] = None,
+    )
+```
+
+## Constructor Parameters
+
+<ParamField path="prompt" type="str" required>
+  The natural language prompt describing what information the script should extract.
+</ParamField>
+
+<ParamField path="source" type="str" required>
+  The target website URL or local HTML file that the generated script will scrape.
+</ParamField>
+
+<ParamField path="config" type="dict" required>
+  Configuration parameters for the graph. Must include:
+  - `llm`: LLM configuration (e.g., `{"model": "openai/gpt-4o"}`)
+  - `library`: The scraping library to use ("beautifulsoup", "playwright", "selenium")
+  
+  Optional parameters:
+  - `verbose` (bool): Enable detailed logging
+  - `headless` (bool): Run browser in headless mode
+  - `additional_info` (str): Extra context for script generation
+  - `loader_kwargs` (dict): Parameters for page loading
+  - `storage_state` (str): Browser state file path
+</ParamField>
+
+<ParamField path="schema" type="Type[BaseModel]" default="None">
+  Optional Pydantic model defining the expected output structure of the generated script.
+</ParamField>
+
+## Attributes
+
+<ResponseField name="prompt" type="str">
+  The extraction prompt for the script.
+</ResponseField>
+
+<ResponseField name="source" type="str">
+  The target website URL or local directory path.
+</ResponseField>
+
+<ResponseField name="config" type="dict">
+  Configuration dictionary for the graph.
+</ResponseField>
+
+<ResponseField name="schema" type="BaseModel">
+  Optional output schema for the generated script.
+</ResponseField>
+
+<ResponseField name="llm_model" type="object">
+  The configured language model instance.
+</ResponseField>
+
+<ResponseField name="library" type="str">
+  The scraping library specified for code generation.
+</ResponseField>
+
+<ResponseField name="input_key" type="str">
+  Either "url" or "local_dir" based on the source type.
+</ResponseField>
+
+## Methods
+
+### run()
+
+Executes the script generation process and returns the generated code.
+
+```python
+def run(self) -> str
+```
+
+<ResponseField name="return" type="str">
+  The generated Python scraping script as a string.
+</ResponseField>
+
+## Basic Usage
+
+```python
+from scrapegraphai.graphs import ScriptCreatorGraph
+
+graph_config = {
+    "llm": {
+        "model": "openai/gpt-4o",
+        "api_key": "your-api-key"
+    },
+    "library": "beautifulsoup"
+}
+
+script_creator = ScriptCreatorGraph(
+    prompt="Extract all product names and prices",
+    source="https://example.com/products",
+    config=graph_config
+)
+
+generated_script = script_creator.run()
+print(generated_script)
+
+# Save the script to a file
+with open("scraper.py", "w") as f:
+    f.write(generated_script)
+```
+
+## Library Options
+
+### BeautifulSoup (Recommended for Static Pages)
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "library": "beautifulsoup"  # Fast, simple, great for static HTML
+}
+
+script_creator = ScriptCreatorGraph(
+    prompt="Extract article titles and publication dates",
+    source="https://example.com/blog",
+    config=config
+)
+
+script = script_creator.run()
+```
+
+**Generated script will use:**
+- `requests` for HTTP requests
+- `BeautifulSoup` for HTML parsing
+- CSS selectors or XPath for element selection
+
+### Playwright (Recommended for Dynamic Pages)
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "library": "playwright"  # For JavaScript-heavy sites
+}
+
+script_creator = ScriptCreatorGraph(
+    prompt="Extract product prices after page loads",
+    source="https://example.com/dynamic-products",
+    config=config
+)
+
+script = script_creator.run()
+```
+
+**Generated script will use:**
+- `playwright` for browser automation
+- Async/await patterns
+- Wait conditions for dynamic content
+
+### Selenium (For Browser Automation)
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "library": "selenium"  # Alternative browser automation
+}
+
+script_creator = ScriptCreatorGraph(
+    prompt="Click the 'Load More' button and extract all items",
+    source="https://example.com/infinite-scroll",
+    config=config
+)
+
+script = script_creator.run()
+```
+
+**Generated script will use:**
+- `selenium` for browser control
+- WebDriver for browser interaction
+- Explicit waits for elements
+
+## Structured Output with Schema
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class Product(BaseModel):
+    name: str = Field(description="Product name")
+    price: float = Field(description="Product price")
+    description: str = Field(description="Product description")
+    in_stock: bool = Field(description="Availability status")
+
+class ProductList(BaseModel):
+    products: List[Product]
+
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "library": "beautifulsoup"
+}
+
+script_creator = ScriptCreatorGraph(
+    prompt="Extract product information",
+    source="https://example.com/products",
+    config=config,
+    schema=ProductList
+)
+
+script = script_creator.run()
+# Generated script will output data matching the ProductList schema
+```
+
+## Graph Workflow
+
+The ScriptCreatorGraph uses the following node pipeline:
+
+```
+FetchNode → ParseNode → GenerateScraperNode
+```
+
+1. **FetchNode**: Fetches the target web page
+2. **ParseNode**: Parses the HTML structure (without full parsing)
+3. **GenerateScraperNode**: Generates the scraping script based on the page structure
+
+## Advanced Usage
+
+### With Additional Context
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "library": "playwright",
+    "additional_info": """
+        The site uses lazy loading. 
+        Wait for all images to load before extracting data.
+        Use headless mode for production.
+    """
+}
+
+script_creator = ScriptCreatorGraph(
+    prompt="Extract all image URLs and captions",
+    source="https://example.com/gallery",
+    config=config
+)
+```
+
+### For Authenticated Pages
+
+```python
+config = {
+    "llm": {"model": "openai/gpt-4o"},
+    "library": "playwright",
+    "storage_state": "./auth_state.json",  # Browser state with auth cookies
+    "additional_info": "The page requires authentication. Use the provided session state."
+}
+
+script_creator = ScriptCreatorGraph(
+    prompt="Extract user dashboard data",
+    source="https://example.com/dashboard",
+    config=config
+)
+```
+
+## Example: Generated BeautifulSoup Script
+
+```python
+# Input
+script_creator = ScriptCreatorGraph(
+    prompt="Extract all article titles and links",
+    source="https://example.com/blog",
+    config={"llm": {"model": "openai/gpt-4o"}, "library": "beautifulsoup"}
+)
+
+script = script_creator.run()
+
+# Output (example)
+"""
+import requests
+from bs4 import BeautifulSoup
+
+def extract_data(url):
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, 'html.parser')
+    
+    articles = []
+    for article in soup.find_all('article', class_='post'):
+        title = article.find('h2', class_='title').text.strip()
+        link = article.find('a', class_='read-more')['href']
+        articles.append({'title': title, 'link': link})
+    
+    return articles
+
+if __name__ == '__main__':
+    url = 'https://example.com/blog'
+    data = extract_data(url)
+    print(data)
+"""
+```
+
+## Example: Generated Playwright Script
+
+```python
+# Input
+script_creator = ScriptCreatorGraph(
+    prompt="Extract product prices after clicking 'Show All'",
+    source="https://example.com/products",
+    config={"llm": {"model": "openai/gpt-4o"}, "library": "playwright"}
+)
+
+script = script_creator.run()
+
+# Output (example)
+"""
+import asyncio
+from playwright.async_api import async_playwright
+
+async def extract_data(url):
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
+        await page.goto(url)
+        
+        # Click show all button
+        await page.click('button.show-all')
+        await page.wait_for_selector('.product-price', state='visible')
+        
+        # Extract prices
+        products = await page.query_selector_all('.product')
+        data = []
+        for product in products:
+            name = await product.query_selector('.name')
+            price = await product.query_selector('.price')
+            data.append({
+                'name': await name.inner_text(),
+                'price': await price.inner_text()
+            })
+        
+        await browser.close()
+        return data
+
+if __name__ == '__main__':
+    url = 'https://example.com/products'
+    data = asyncio.run(extract_data(url))
+    print(data)
+"""
+```
+
+## Use Cases
+
+1. **Code Generation**: Automatically generate scraping scripts
+2. **Learning**: Understand how to scrape specific websites
+3. **Prototyping**: Quickly create scraper prototypes
+4. **Documentation**: Generate example code for documentation
+5. **Template Creation**: Create reusable scraping templates
+
+## Accessing Generated Code
+
+```python
+script = script_creator.run()
+
+# Get the generated code
+print("Generated Script:")
+print(script)
+
+# Save to file
+with open("generated_scraper.py", "w") as f:
+    f.write(script)
+
+# Access full state
+final_state = script_creator.get_state()
+generated_code = final_state.get("answer")
+parsed_html = final_state.get("parsed_doc")
+
+print(f"Code length: {len(generated_code)} characters")
+```
+
+## Execution Information
+
+```python
+script = script_creator.run()
+
+# Get execution metrics
+exec_info = script_creator.get_execution_info()
+for node_info in exec_info:
+    print(f"Node: {node_info['node_name']}")
+    print(f"  Time: {node_info['exec_time']:.2f}s")
+    print(f"  Tokens: {node_info['total_tokens']}")
+    print(f"  Cost: ${node_info['total_cost_USD']:.4f}")
+```
+
+## Testing Generated Scripts
+
+```python
+import subprocess
+import tempfile
+import os
+
+# Generate script
+script = script_creator.run()
+
+# Save to temporary file
+with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+    f.write(script)
+    script_path = f.name
+
+try:
+    # Test the generated script
+    result = subprocess.run(
+        ['python', script_path],
+        capture_output=True,
+        text=True,
+        timeout=30
+    )
+    
+    print("Script output:")
+    print(result.stdout)
+    
+    if result.returncode != 0:
+        print("Script errors:")
+        print(result.stderr)
+finally:
+    # Clean up
+    os.unlink(script_path)
+```
+
+## Error Handling
+
+```python
+try:
+    script = script_creator.run()
+    
+    if not script or len(script) < 100:
+        print("Generated script seems incomplete")
+    else:
+        print(f"Successfully generated {len(script)} characters of code")
+        
+except Exception as e:
+    print(f"Error during script generation: {e}")
+```
+
+## Best Practices
+
+1. **Be specific in prompts**: Clearly describe what data to extract
+2. **Choose appropriate library**: 
+   - BeautifulSoup for static HTML
+   - Playwright/Selenium for dynamic content
+3. **Test generated scripts**: Always test before production use
+4. **Review code**: Manually review generated code for edge cases
+5. **Use schema**: Define schemas for type-safe output
+
+## Limitations
+
+- Generated code may need manual refinement
+- Complex scraping logic might not be perfect
+- CAPTCHA or anti-bot measures not automatically handled
+- Generated code quality depends on LLM capabilities
+
+## Related Graphs
+
+- [ScriptCreatorMultiGraph](/api/graphs/multi-graphs#scriptcreatormultigraph) - Generate scripts for multiple URLs
+- [SmartScraperGraph](/api/graphs/smart-scraper-graph) - Direct data extraction (no code generation)
